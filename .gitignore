@@ -1,0 +1,10 @@
+vrisa_env/
+*.pyc
+__pycache__/
+db.sqlite3
+*.log
+*.swp
+*.DS_Store
+/media
+/static
+/venv
