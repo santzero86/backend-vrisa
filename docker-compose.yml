@@ -1,0 +1,14 @@
+services:
+  vrisa_db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: vrisa_db
+      POSTGRES_USER: vrisa_user
+      POSTGRES_PASSWORD: local_password_1234
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+
+volumes:
+  pgdata:
