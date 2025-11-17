@@ -1,6 +1,6 @@
 from typing import Optional
-from src.users.domain.entities import UserEntity
-from src.users.infrastructure.models import User
+from src.users.domain.entities import User as UserEntity
+from src.users.models import User
 from src.users.infrastructure.mappers import UserMapper
 
 class UserRepository:

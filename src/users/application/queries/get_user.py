@@ -3,7 +3,7 @@
 from typing import Optional
 from src.users.infrastructure.repositories import UserRepository
 from src.users.application.dto import UserDTO, RoleDTO
-from src.users.application.exceptions import UserNotFoundError
+from common.exceptions import NotFoundError
 
 class GetUserQuery:
     def __init__(self: 'GetUserQuery', repository: UserRepository) -> None:
@@ -13,7 +13,7 @@ class GetUserQuery:
         user_entity = self._repository.find_by_id(user_id)
 
         if not user_entity:
-            raise UserNotFoundError(f"User with ID {user_id} not found.")
+            raise NotFoundError(f"User with ID {user_id} not found.")
 
         # Map entity to DTO
         role_dto: Optional[RoleDTO] = None

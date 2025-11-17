@@ -1,8 +1,8 @@
 from django.contrib.auth.hashers import make_password
-from src.users.domain.entities import UserEntity, RoleEntity
+from src.users.domain.entities import User, Role
 from src.users.infrastructure.repositories import UserRepository
 from src.users.application.dto import RegisterUserDTO, UserDTO, RoleDTO
-from src.users.application.exceptions import UserAlreadyExistsError
+from common.exceptions import ConflictError
 
 class RegisterUserCommand:
     def __init__(self: 'RegisterUserCommand', repository: UserRepository) -> None:
@@ -11,19 +11,19 @@ class RegisterUserCommand:
     def execute(self: 'RegisterUserCommand', user_dto: RegisterUserDTO) -> UserDTO:
         # Check if user already exists
         if self._repository.find_by_email(user_dto.email):
-            raise UserAlreadyExistsError(f"User with email {user_dto.email} already exists.")
+            raise ConflictError(f"User with email {user_dto.email} already exists.")
 
-        # Create RoleEntity if role_id is provided
-        role: Optional[RoleEntity] = None
+        # Create Role if role_id is provided
+        role: Optional[Role] = None
         if user_dto.role_id:
             # In a real app, you would fetch the role name from a RoleRepository
             # For simplicity, we create a placeholder entity
-            role = RoleEntity(id=user_dto.role_id, name="Assigned Role")
+            role = Role(id=user_dto.role_id, name="Assigned Role")
 
         # Create a domain entity from the DTO data
         # IMPORTANT: Password hashing happens here, just before saving.
         # This is an application-level concern.
-        user_entity: UserEntity = UserEntity(
+        user_entity: User = User(
             id=None, # The database will generate the ID
             email=user_dto.email,
             first_name=user_dto.first_name,
@@ -34,7 +34,7 @@ class RegisterUserCommand:
         )
 
         # Persist using the repository
-        created_user: UserEntity = self._repository.save(user_entity)
+        created_user: User = self._repository.save(user_entity)
 
         # Return a DTO with the created user's data
         role_dto: Optional[RoleDTO] = None
