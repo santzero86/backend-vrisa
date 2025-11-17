@@ -16,3 +16,8 @@ class User:
     user_type_id: Optional[int] = None
     created_at: Optional[str] = None
     updated_at: Optional[str] = None
+
+@dataclass
+class Role:
+    id: int
+    name: str
