@@ -6,7 +6,7 @@ from src.users.infrastructure.repositories import UserRepository
 from src.users.application.commands.register_user import RegisterUserCommand
 from src.users.application.queries.get_user import GetUserQuery
 from src.users.application.dto import RegisterUserDTO
-from src.users.application.exceptions import UserNotFoundError, UserAlreadyExistsError
+from common.exceptions import NotFoundError, ConflictError
 
 class UserRegistrationView(APIView):
     def post(self: 'UserRegistrationView', request) -> Response:
@@ -29,7 +29,7 @@ class UserRegistrationView(APIView):
                 
                 return Response(response_serializer.data, status=status.HTTP_201_CREATED)
             
-            except UserAlreadyExistsError as e:
+            except ConflictError as e:
                 return Response({'error': str(e)}, status=status.HTTP_409_CONFLICT)
             except Exception as e:
                 return Response({'error': 'An unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
@@ -51,7 +51,7 @@ class UserDetailView(APIView):
 
             return Response(serializer.data, status=status.HTTP_200_OK)
 
-        except UserNotFoundError as e:
+        except NotFoundError as e:
             return Response({'error': str(e)}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({'error': 'An unexpected error occurred.'}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
