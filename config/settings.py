@@ -38,6 +38,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'vrisa',
+    'src.users.apps.UsersConfig',
+    'rest_framework',
 ]
 
 MIDDLEWARE = [
