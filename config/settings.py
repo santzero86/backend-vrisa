@@ -39,6 +39,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'vrisa',
     'src.users.apps.UsersConfig',
+    'src.institutions.apps.InstitutionsConfig',
     'rest_framework',
 ]
 
