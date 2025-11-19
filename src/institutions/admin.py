@@ -1,5 +1,5 @@
 from django.contrib import admin
-from .models import EnvironmentalInstitution, IntegrationRequest, InstitutionColorSet
+from src.users.models import EnvironmentalInstitution, IntegrationRequest, InstitutionColorSet
 
 class InstitutionColorSetInline(admin.TabularInline):
     model = InstitutionColorSet
