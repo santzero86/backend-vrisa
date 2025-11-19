@@ -12,6 +12,25 @@ class EnvironmentalInstitution(models.Model):
     def __str__(self):
         return self.institute_name
 
+class InstitutionColorSet(models.Model):
+    institution = models.ForeignKey(
+        EnvironmentalInstitution,
+        on_delete=models.CASCADE,
+         related_name='colors',
+        verbose_name="Institución"
+    )
+
+    color_hex = models.CharField(max_length=7, help_text="Formato hexadecimal, ej: #FF5733", verbose_name="Color Hex")
+    class Meta:
+        # Esto asegura que una institución no pueda tener el mismo color repetido.
+        unique_together = ('institution', 'color_hex')
+        verbose_name = "Color de Institución"
+        verbose_name_plural = "Colores de Instituciones"
+
+    def __str__(self):
+        return f"{self.institution.institute_name} - {self.color_hex}"
+
+
 #Solicititud de integración de una institución ambiental al sistema.
 class IntegrationRequest(models.Model):
     # La institución que hace la solicitud.
