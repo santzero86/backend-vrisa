@@ -1,7 +1,11 @@
 from django.db import models
-from src.users.models import User
+from django.conf import settings
 
-# Modelo para representar una institución ambiental que puede solicitar integración al sistema.
+# Importamos el modelo de usuario configurado en settings.py (tu usuario custom)
+User = settings.AUTH_USER_MODEL
+
+# Modelo principal que representa la entidad 'Institución'.
+# Hereda de models.Model, lo que le da la capacidad de mapearse a una tabla SQL.
 class EnvironmentalInstitution(models.Model):
     institute_name = models.CharField(max_length=255, unique=True, verbose_name="Nombre de la Institución")
     physic_address = models.CharField(max_length=255, verbose_name="Dirección Física")
@@ -11,21 +15,20 @@ class EnvironmentalInstitution(models.Model):
     
     def __str__(self):
         return self.institute_name
-
+# Atributo multivaluado para almacenar un conjunto de colores asociados a la institución.
 class InstitutionColorSet(models.Model):
     institution = models.ForeignKey(
         EnvironmentalInstitution,
         on_delete=models.CASCADE,
-         related_name='colors',
+        related_name='colors',
         verbose_name="Institución"
     )
 
     color_hex = models.CharField(max_length=7, help_text="Formato hexadecimal, ej: #FF5733", verbose_name="Color Hex")
+   # Esto asegura que una institución no pueda tener el mismo color repetido.
     class Meta:
-        # Esto asegura que una institución no pueda tener el mismo color repetido.
         unique_together = ('institution', 'color_hex')
         verbose_name = "Color de Institución"
-        verbose_name_plural = "Colores de Instituciones"
 
     def __str__(self):
         return f"{self.institution.institute_name} - {self.color_hex}"
@@ -41,11 +44,12 @@ class IntegrationRequest(models.Model):
         verbose_name="Institución Solicitante"
     )
 
-    #Administrador de la estiación a registrar
+    #Administrador de la estación a registrar
     proposed_station_admin = models.ForeignKey(
         User,
         on_delete=models.SET_NULL,
         null=True,
+        blank=True,
         related_name='station_admin_requests',
         verbose_name="Administrador de Estación Propuesto"
     )
