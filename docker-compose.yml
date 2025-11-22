@@ -9,6 +9,22 @@ services:
       - "5432:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
+  
+  backend:
+    build: .
+    container_name: vrisa_django_container
+    command: python manage.py runserver 0.0.0.0:8000
+    volumes:
+      - .:/app
+    ports:
+      - "8000:8000"
+    environment:
+      - POSTGRES_DB=vrisa_db
+      - POSTGRES_USER=vrisa_user
+      - POSTGRES_PASSWORD=local_password_1234
+      - POSTGRES_HOST=vrisa_db
+    depends_on:
+      - vrisa_db
 
 volumes:
   pgdata:

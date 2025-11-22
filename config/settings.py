@@ -77,8 +77,12 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.sqlite3',
-        'NAME': BASE_DIR / 'db.sqlite3',
+        'ENGINE': 'django.db.backends.postgresql',
+        'NAME': os.environ.get('POSTGRES_DB', 'vrisa_db'),
+        'USER': os.environ.get('POSTGRES_USER', 'vrisa_user'),
+        'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'local_password_1234'),
+        'HOST': os.environ.get('POSTGRES_HOST', 'vrisa_db'),
+        'PORT': os.environ.get('POSTGRES_PORT', '5432'),
     }
 }
 
