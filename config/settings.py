@@ -37,8 +37,8 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
-    'vrisa',
     'src.users.apps.UsersConfig',
+    'src.institutions.apps.InstitutionsConfig',
     'rest_framework',
 ]
 
