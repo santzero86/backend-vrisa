@@ -26,9 +26,12 @@ pip install psycopg2
 python manage.py makemigrations
 ```
 
+### Levantar el proyecto
+```
+docker-compose up --build
+```
 
 ## Ejecucion de Migraciones 
-
 ```
 # Correr las migraciones dentro del contenedor 'backend'
 docker-compose exec backend python manage.py migrate
