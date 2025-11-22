@@ -1,17 +1,18 @@
+# src/institutions/serializers.py
 from rest_framework import serializers
 from .models import EnvironmentalInstitution, InstitutionColorSet, IntegrationRequest
 
+# Serializador auxiliar para mostrar la estructura anidada de colores (Solo lectura).
 class InstitutionColorSetSerializer(serializers.ModelSerializer):
     class Meta:
         model = InstitutionColorSet
         fields = ['id', 'color_hex']
 
-# Campo de lectura: Muestra los colores anidados dentro del JSON de la institución.
 class EnvironmentalInstitutionSerializer(serializers.ModelSerializer):
-    # Incluimos los colores anidados para verlos al pedir la info de la institución
+    # Read-only para mostrar los datos
     colors = InstitutionColorSetSerializer(many=True, read_only=True)
-    # Campo de escritura (write_only): Recibe una lista simple de strings ["#FFF", "#000"].
-    # No se guarda en la BD directamente, lo usamos manualmente en el método create().
+    
+    # Write-only para recibir la entrada simple
     colors_input = serializers.ListField(
         child=serializers.CharField(max_length=7), 
         write_only=True, 
@@ -31,16 +32,7 @@ class EnvironmentalInstitutionSerializer(serializers.ModelSerializer):
         ]
         read_only_fields = ['created_at']
 
-    def create(self, validated_data):
-         # Extraemos los colores si vienen en la petición
-        colors_data = validated_data.pop('colors_input', [])
-        institution = EnvironmentalInstitution.objects.create(**validated_data)
-        # Guardamos los colores
-        for color_hex in colors_data:
-            InstitutionColorSet.objects.create(institution=institution, color_hex=color_hex)
-            
-        return institution
-
+# Incluye el nombre de la institución para facilitar la lectura en el Frontend.
 class IntegrationRequestSerializer(serializers.ModelSerializer):
     institution_name = serializers.CharField(source='institution.institute_name', read_only=True)
 
