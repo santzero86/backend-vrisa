@@ -17,6 +17,13 @@ class EnvironmentalInstitution(models.Model):
     
     def __str__(self):
         return self.institute_name
+    
+    class Meta:
+        db_table = 'environmental_institution'
+        verbose_name = "Institución Ambiental"
+        verbose_name_plural = "Instituciones Ambientales"
+        ordering = ['institute_name']
+
 # Atributo multivaluado para almacenar un conjunto de colores asociados a la institución.
 class InstitutionColorSet(models.Model):
     """
@@ -39,7 +46,12 @@ class InstitutionColorSet(models.Model):
 
     def __str__(self):
         return f"{self.institution.institute_name} - {self.color_hex}"
-
+    
+    class Meta:
+        db_table = 'institution_color_set'
+        unique_together = ('institution', 'color_hex')
+        verbose_name = "Color Institucional"
+        verbose_name_plural = "Colores Institucionales"
 
 class IntegrationRequest(models.Model):
     """
@@ -94,3 +106,9 @@ class IntegrationRequest(models.Model):
     
     def __str__(self):
         return f"Solicitud de {self.institution.institute_name} - Estado: {self.get_request_status_display()}"
+    
+    class Meta:
+        db_table = 'integration_request'
+        verbose_name = "Solicitud de Integración"
+        verbose_name_plural = "Solicitudes de Integración"
+        ordering = ['-request_date']
