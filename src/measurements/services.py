@@ -4,8 +4,27 @@ from .models import Measurement
 from src.sensors.models import Sensor
 
 class MeasurementService:
+    """
+    Capa de servicio para la gestión de mediciones.
+    Centraliza la lógica de negocio, validaciones de integridad y control de calidad
+    de datos antes de persistir en la base de datos.
+    """
     @staticmethod
     def create_measurement(data: dict) -> Measurement:
+        """
+        Crea un registro de medición validando reglas estrictas de negocio.
+        Flujo de Validación:
+        1. Verifica que el Sensor exista y esté en estado 'ACTIVE'.
+        2. Verifica que el valor medido esté dentro de los rangos físicos posibles
+           definidos en el catálogo de variables (Control de Calidad).
+        Args:
+            data (dict): Diccionario con datos validados (sensor, variable, value, date).                 Generalmente proviene de serializer.validated_data.
+        Returns:
+            Measurement: La instancia del modelo creada y guardada.
+        Raises:
+            - Si el sensor está INACTIVO o en MANTENIMIENTO.
+            - Si el valor (value) está fuera de los rangos min/max esperados.
+        """
         sensor = data.get('sensor')
         variable = data.get('variable')
         value = data.get('value')
