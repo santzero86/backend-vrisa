@@ -9,18 +9,33 @@ from .services import MeasurementService
 
 class VariableCatalogViewSet(viewsets.ModelViewSet):
     """
-    CRUD para definir qué variables mide el sistema (solo admins deberían escribir aquí idealmente).
+    Endpoint: /api/measurements/variables/
+    Gestión del catálogo de variables.
+    Permite listar, crear y editar los tipos de contaminantes o variables climáticas.
+    Permisos:
+        - Requiere autenticación.
+        - (TODO: Idealmente solo Administradores deberían poder crear/editar/borrar).
     """
     queryset = VariableCatalog.objects.all()
     serializer_class = VariableCatalogSerializer
     permission_classes = [permissions.IsAuthenticated]
 
 class MeasurementViewSet(viewsets.ModelViewSet):
+    """
+    Endpoint: /api/measurements/data/
+    Gestión de los datos recolectados (Mediciones).
+    Permite la ingesta de datos y la consulta histórica.
+    """
     queryset = Measurement.objects.all()
     serializer_class = MeasurementSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
+        """
+        Sobrescribe el método POST para delegar la lógica al Service Layer.
+        Maneja la traducción de excepciones de negocio (ValidationError) 
+        a respuestas HTTP estandarizadas (400 Bad Request).
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

@@ -4,6 +4,11 @@ from django.db import models
 from src.sensors.models import Sensor 
 
 class VariableCatalog(models.Model):
+    """
+    Catálogo maestro de variables meteorológicas y contaminantes.
+    Actúa como un diccionario para definir qué tipos de datos puede interpretar el sistema.
+    Define metadatos como unidades de medida y rangos de validación automática.
+    """
     variable_id = models.AutoField(primary_key=True)
     name = models.CharField(max_length=100, verbose_name="Nombre (Ej: Material Particulado 2.5)")
     code = models.CharField(max_length=20, unique=True, verbose_name="Código (Ej: PM2.5)")
@@ -17,6 +22,11 @@ class VariableCatalog(models.Model):
         return f"{self.name} ({self.unit})"
 
 class Measurement(models.Model):
+    """
+    Registro histórico de una medición individual.
+    Esta tabla almacena la serie de tiempo de los datos recolectados.
+    Está optimizada para búsquedas por sensor y fecha.
+    """
     measurement_id = models.AutoField(primary_key=True)
     
     # Relación con el Sensor (Core del requerimiento)
