@@ -8,11 +8,19 @@ from .serializers import SensorSerializer
 from .services import SensorService
 
 class SensorViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para operaciones CRUD sobre los sensores.
+    Delega la creación al SensorService para mantener la consistencia
+    y permitir futuras expansiones de lógica de negocio.
+    """
     queryset = Sensor.objects.all()
     serializer_class = SensorSerializer
     permission_classes = [permissions.IsAuthenticated]
 
     def create(self, request, *args, **kwargs):
+        """
+        Intercepta la creación para utilizar el SensorService.
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 

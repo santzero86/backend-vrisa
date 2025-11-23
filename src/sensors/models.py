@@ -1,6 +1,11 @@
 from django.db import models
 
 class Sensor(models.Model):
+    """
+    Representa un dispositivo sensor físico dentro del sistema.
+    Almacena información técnica como modelo, fabricante, número de serie
+    y el estado operativo actual del dispositivo.
+    """
     sensor_id = models.AutoField(primary_key=True)
     model = models.CharField(max_length=100, verbose_name="Modelo del Sensor")
     manufacturer = models.CharField(max_length=100, verbose_name="Fabricante")
