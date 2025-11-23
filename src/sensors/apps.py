@@ -1,7 +1,6 @@
 from django.apps import AppConfig
 
 
-class StationsConfig(AppConfig):
+class SensorsConfig(AppConfig):
     default_auto_field = 'django.db.models.BigAutoField'
-    name = 'src.stations'
-    label = 'stations'
+    name = 'src.sensors'

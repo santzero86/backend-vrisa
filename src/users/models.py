@@ -1,6 +1,36 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
+from src.institutions.models import EnvironmentalInstitution
+
+
+class Permission(models.Model):
+    """
+    Representa una acción específica o recurso protegido en el sistema (tabla 'permission').
+    
+    Ejemplos: 'create_station', 'view_reports', 'validate_user'.
+    """
+    permission_id = models.AutoField(primary_key=True)
+    permission_name = models.CharField(
+        max_length=150, 
+        unique=True, 
+        verbose_name="Nombre del Permiso"
+    )
+    description = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Descripción"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+
+    def __str__(self) -> str:
+        return self.permission_name
+
+    class Meta:
+        db_table = 'permission'
+        verbose_name = 'Permiso'
+        verbose_name_plural = 'Permisos'
 
 class Role(models.Model):
     """
@@ -29,7 +59,7 @@ class CustomUserManager(BaseUserManager):
     Reemplaza el comportamiento por defecto de Django para utilizar el  correo electrónico (email)
     como identificador único en lugar del 'username'.
     """
-    def create_user(self, email: str, password: str = None, **extra_fields):
+    def create_user(self, email, password = None, **extra_fields):
         """
         Crea y guarda un usuario con el email y contraseña dados.
         """
@@ -41,7 +71,7 @@ class CustomUserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email: str, password: str = None, **extra_fields):
+    def create_superuser(self, email, password = None, **extra_fields):
         """
         Crea y guarda un superusuario con permisos de staff y superuser.
         """
@@ -75,14 +105,20 @@ class User(AbstractUser):
     updated_at = models.DateTimeField(auto_now=True)
 
     institution = models.ForeignKey(
-        'institutions.Institution', 
+        EnvironmentalInstitution, 
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True,
         related_name='users'
     )
 
-    roles = models.ManyToManyField(Role, through='UserRole', related_name='users')
+    roles = models.ManyToManyField(
+        Role, 
+        through='UserRole',
+        through_fields=('user', 'role'), 
+        related_name='users',
+        verbose_name="Roles asignados"
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
@@ -120,3 +156,32 @@ class UserRole(models.Model):
     class Meta:
         db_table = 'user_role'
         unique_together = ('user', 'role')
+
+
+class RolePermission(models.Model):
+    """
+    Modelo intermedio para la tabla 'rol_permission' (según diagrama).
+    
+    Vincula Roles con Permisos, permitiendo definir qué puede hacer cada rol
+    y dejando registro de qué administrador configuró ese permiso.
+    """
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, verbose_name="Rol")
+    permission = models.ForeignKey(Permission, on_delete=models.CASCADE, verbose_name="Permiso")
+    
+    # Campo requerido por el diagrama: granted_by
+    granted_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='granted_permissions_history',
+        verbose_name="Otorgado por"
+    )
+    
+    granted_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de otorgamiento")
+
+    class Meta:
+        db_table = 'rol_permission'
+        unique_together = ('role', 'permission')
+        verbose_name = 'Permiso de Rol'
+        verbose_name_plural = 'Permisos de Roles'
