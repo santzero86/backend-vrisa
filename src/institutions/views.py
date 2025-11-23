@@ -70,7 +70,6 @@ class IntegrationRequestViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as e:
              return Response({"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST)
 
-    # Acción custom (POST). Aprueba solicitud y asigna al admin actual como revisor.
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def approve(self, request, pk=None):
         """
