@@ -19,7 +19,7 @@ Cuando esté activo, verás algo como:
 4. Instalar Django dentro del venv
 ```
 pip install django djangorestframework
-pip install psycopg2
+pip install -r requirements.txt
 ```
 
 
