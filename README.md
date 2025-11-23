@@ -22,20 +22,36 @@ pip install django djangorestframework
 pip install psycopg2
 ```
 
-```
-python manage.py makemigrations
-```
 
 ### Levantar el proyecto
 ```
 docker-compose up --build
 ```
 
-## Ejecucion de Migraciones 
+###  Ejecucion de Migraciones 
 ```
 # Correr las migraciones dentro del contenedor 'backend'
+docker-compose exec backend python manage.py makemigrations
 docker-compose exec backend python manage.py migrate
 
 # Crear superusuario dentro del contenedor
 docker-compose exec backend python manage.py createsuperuser
+```
+
+
+(vrisa_env) pepito@~    python manage.py createsuperuser
+Dirección de correo: admin@vrisa.com
+First name: Admin
+Last name: Vrisa
+Password: 
+Password (again): 
+Superuser created successfully.
+
+
+### Comandos de Django para crear una nueva app o inicializar la aplicacion
+
+```
+python manage.py startapp nombre_app
+
+python manage.py runserver
 ```
