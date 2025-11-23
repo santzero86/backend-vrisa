@@ -28,6 +28,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'src.users.apps.UsersConfig',
     'src.institutions.apps.InstitutionsConfig',
+    'src.sensors.apps.SensorsConfig',
     'rest_framework',
 ]
 
