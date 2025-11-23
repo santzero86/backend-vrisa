@@ -1,10 +1,20 @@
 from rest_framework.views import APIView
 from rest_framework.response import Response
-from rest_framework import status
-from src.users.serializers import RegisterUserSerializer, UserSerializer
+from rest_framework import status, permissions
+from rest_framework_simplejwt.views import TokenObtainPairView
+from src.users.serializers import CustomTokenObtainPairSerializer, RegisterUserSerializer, UserSerializer
 import src.users.services as user_services
 
+class CustomTokenObtainPairView(TokenObtainPairView):
+    """
+    Endpoint de Login.
+    Recibe email y password, retorna Access Token y Refresh Token.
+    Usa el serializador personalizado para inyectar claims extra.
+    """
+    serializer_class = CustomTokenObtainPairSerializer
+
 class UserRegistrationView(APIView):
+    permission_classes = [permissions.AllowAny] 
     def post(self, request):
         # 1. Validar Entrada
         input_serializer = RegisterUserSerializer(data=request.data)
@@ -30,6 +40,5 @@ class UserDetailView(APIView):
     def get(self, request, user_id: int):
         # El servicio maneja la lógica de "No encontrado" (404) internamente
         user = user_services.get_user_by_id(user_id)
-        
         serializer = UserSerializer(user)
         return Response(serializer.data, status=status.HTTP_200_OK)
