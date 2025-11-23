@@ -1,4 +1,5 @@
 from django.db import models
+from src.stations.models import MonitoringStation
 
 class Sensor(models.Model):
     """
@@ -12,6 +13,16 @@ class Sensor(models.Model):
     serial_number = models.CharField(max_length=100, unique=True, verbose_name="Número de Serie")
     installation_date = models.DateField(verbose_name="Fecha de Instalación")
     
+    station = models.ForeignKey(
+        MonitoringStation,
+        on_delete=models.CASCADE,
+        related_name='sensors',
+        verbose_name="Estación Asignada",
+        null=True, blank=True 
+    ) 
+
+
+
     class Status(models.TextChoices):
         ACTIVE = 'ACTIVE', 'Activo'
         INACTIVE = 'INACTIVE', 'Inactivo'
