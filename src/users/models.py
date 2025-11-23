@@ -3,6 +3,35 @@ from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
 from src.institutions.models import EnvironmentalInstitution
 
+
+class Permission(models.Model):
+    """
+    Representa una acción específica o recurso protegido en el sistema (tabla 'permission').
+    
+    Ejemplos: 'create_station', 'view_reports', 'validate_user'.
+    """
+    permission_id = models.AutoField(primary_key=True)
+    permission_name = models.CharField(
+        max_length=150, 
+        unique=True, 
+        verbose_name="Nombre del Permiso"
+    )
+    description = models.TextField(
+        blank=True, 
+        null=True, 
+        verbose_name="Descripción"
+    )
+    created_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de creación")
+    updated_at = models.DateTimeField(auto_now=True, verbose_name="Última actualización")
+
+    def __str__(self) -> str:
+        return self.permission_name
+
+    class Meta:
+        db_table = 'permission'
+        verbose_name = 'Permiso'
+        verbose_name_plural = 'Permisos'
+
 class Role(models.Model):
     """
     Representa el rol del usuario en el sistema (relación 'role').
@@ -127,3 +156,32 @@ class UserRole(models.Model):
     class Meta:
         db_table = 'user_role'
         unique_together = ('user', 'role')
+
+
+class RolePermission(models.Model):
+    """
+    Modelo intermedio para la tabla 'rol_permission' (según diagrama).
+    
+    Vincula Roles con Permisos, permitiendo definir qué puede hacer cada rol
+    y dejando registro de qué administrador configuró ese permiso.
+    """
+    role = models.ForeignKey(Role, on_delete=models.CASCADE, verbose_name="Rol")
+    permission = models.ForeignKey(Permission, on_delete=models.CASCADE, verbose_name="Permiso")
+    
+    # Campo requerido por el diagrama: granted_by
+    granted_by = models.ForeignKey(
+        User, 
+        on_delete=models.SET_NULL, 
+        null=True, 
+        blank=True, 
+        related_name='granted_permissions_history',
+        verbose_name="Otorgado por"
+    )
+    
+    granted_at = models.DateTimeField(auto_now_add=True, verbose_name="Fecha de otorgamiento")
+
+    class Meta:
+        db_table = 'rol_permission'
+        unique_together = ('role', 'permission')
+        verbose_name = 'Permiso de Rol'
+        verbose_name_plural = 'Permisos de Roles'
