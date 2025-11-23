@@ -4,9 +4,13 @@ from django.conf import settings
 # Importamos el modelo de usuario configurado en settings.py (tu usuario custom)
 User = settings.AUTH_USER_MODEL
 
-# Modelo principal que representa la entidad 'Institución'.
-# Hereda de models.Model, lo que le da la capacidad de mapearse a una tabla SQL.
 class EnvironmentalInstitution(models.Model):
+    """
+    Representa a las instituciones ambientales en el sistema (relación 'environmental_institution').
+    
+    Esta tabla almacena la información de las entidades responsables de la gestión
+    ambiental que utilizarán la plataforma VRISA.
+    """
     institute_name = models.CharField(max_length=255, unique=True, verbose_name="Nombre de la Institución")
     physic_address = models.CharField(max_length=255, verbose_name="Dirección Física")
     institute_logo = models.ImageField(upload_to='institution_logos/', null=True, blank=True, verbose_name="Logo")
@@ -15,6 +19,7 @@ class EnvironmentalInstitution(models.Model):
     
     def __str__(self):
         return self.institute_name
+
 # Atributo multivaluado para almacenar un conjunto de colores asociados a la institución.
 class InstitutionColorSet(models.Model):
     institution = models.ForeignKey(
@@ -32,7 +37,6 @@ class InstitutionColorSet(models.Model):
 
     def __str__(self):
         return f"{self.institution.institute_name} - {self.color_hex}"
-
 
 #Solicititud de integración de una institución ambiental al sistema.
 class IntegrationRequest(models.Model):
