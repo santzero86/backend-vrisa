@@ -7,13 +7,21 @@ from .serializers import EnvironmentalInstitutionSerializer, IntegrationRequestS
 from .services import InstitutionService, IntegrationRequestService
 
 class InstitutionViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para la gestión de Instituciones Ambientales.
+    Rutas principales:
+    - GET /api/institutions/institutes/: Lista todas las instituciones.
+    - POST /api/institutions/institutes/: Crea una institución y sus colores (Transaccional).
+    """
     queryset = EnvironmentalInstitution.objects.all()
     serializer_class = EnvironmentalInstitutionSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    # Intercepta POST. Separa datos del modelo y colores, llama al Service.
-    # Retorna: 201 Created (éxito) o 400/500 (error).
     def create(self, request, *args, **kwargs):
+        """
+        Sobrescribe el método create para delegar la lógica compleja al InstitutionService.
+        Separa los datos del modelo principal de la lista de colores input.
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
 
@@ -38,12 +46,18 @@ class InstitutionViewSet(viewsets.ModelViewSet):
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class IntegrationRequestViewSet(viewsets.ModelViewSet):
+    """
+    ViewSet para la gestión de Solicitudes de Integración.
+    Incluye endpoints estándar CRUD y acciones personalizadas para flujos de aprobación.
+    """
     queryset = IntegrationRequest.objects.all()
     serializer_class = IntegrationRequestSerializer
     permission_classes = [permissions.IsAuthenticated]
 
-    # Intercepta POST. Usa Service para validar reglas de negocio (duplicados).
     def create(self, request, *args, **kwargs):
+        """
+        Crea una solicitud utilizando el servicio para validar reglas de negocio (duplicidad).
+        """
         serializer = self.get_serializer(data=request.data)
         serializer.is_valid(raise_exception=True)
         
@@ -59,7 +73,11 @@ class IntegrationRequestViewSet(viewsets.ModelViewSet):
     # Acción custom (POST). Aprueba solicitud y asigna al admin actual como revisor.
     @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
     def approve(self, request, pk=None):
-        # Este endpoint es puramente lógico, delegamos todo al servicio
+        """
+        Acción personalizada para aprobar una solicitud.
+        Endpoint: POST /api/institutions/requests/{id}/approve/
+        Solo accesible por administradores. Asigna fecha de revisión y revisor automáticamente.
+        """
         try:
             # LLAMADA AL SERVICIO DE APROBACIÓN
             IntegrationRequestService.approve_request(pk, request.user)
