@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
+from src.institutions.models import EnvironmentalInstitution
 
 class Role(models.Model):
     """
@@ -29,7 +30,7 @@ class CustomUserManager(BaseUserManager):
     Reemplaza el comportamiento por defecto de Django para utilizar el  correo electrónico (email)
     como identificador único en lugar del 'username'.
     """
-    def create_user(self, email: str, password: str = None, **extra_fields):
+    def create_user(self, email, password = None, **extra_fields):
         """
         Crea y guarda un usuario con el email y contraseña dados.
         """
@@ -41,7 +42,7 @@ class CustomUserManager(BaseUserManager):
         user.save(using=self._db)
         return user
 
-    def create_superuser(self, email: str, password: str = None, **extra_fields):
+    def create_superuser(self, email, password = None, **extra_fields):
         """
         Crea y guarda un superusuario con permisos de staff y superuser.
         """
@@ -75,14 +76,20 @@ class User(AbstractUser):
     updated_at = models.DateTimeField(auto_now=True)
 
     institution = models.ForeignKey(
-        'institutions.Institution', 
+        EnvironmentalInstitution, 
         on_delete=models.SET_NULL, 
         null=True, 
         blank=True,
         related_name='users'
     )
 
-    roles = models.ManyToManyField(Role, through='UserRole', related_name='users')
+    roles = models.ManyToManyField(
+        Role, 
+        through='UserRole',
+        through_fields=('user', 'role'), 
+        related_name='users',
+        verbose_name="Roles asignados"
+    )
 
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']

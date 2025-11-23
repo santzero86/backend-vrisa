@@ -1,6 +1,6 @@
 from django.contrib import admin
 from django.contrib.auth.admin import UserAdmin as BaseUserAdmin
-from src.users.models import User, Role, UserType
+from src.users.models import User, Role, UserRole
 
 class UserRoleInline(admin.TabularInline):
     """
@@ -20,26 +20,20 @@ class UserAdmin(BaseUserAdmin):
     Organiza los campos en grupos lógicos y muestra las relaciones nuevas.
     """
     # Campos a mostrar en la lista de registros
-    list_display = ('email', 'first_name', 'last_name', 'is_staff', 'role')    
+    list_display = ('email', 'first_name', 'last_name', 'institution', 'is_staff')    
     # Filtros laterales
-    list_filter = ('is_staff', 'is_superuser', 'is_active', 'groups')
+    list_filter = ('institution', 'is_active')
 
     fieldsets = (
         (None, {'fields': ('email', 'password')}),
-        ('Información personal', {
-            'fields': ('first_name', 'last_name')
+        ('Información Personal', {
+            'fields': ('first_name', 'last_name', 'job_title', 'institution')
         }),
-        'Documentación Profesional', ({
+        ('Documentación Profesional', {
             'fields': ('professional_card_front', 'professional_card_rear')
         }),
         ('Permisos', {
             'fields': ('is_active', 'is_staff', 'is_superuser', 'groups', 'user_permissions')
-        }),
-        ('Fechas importantes', {
-            'fields': ('last_login', 'date_joined')
-        }),
-        ('Campos Personalizados', {
-            'fields': ('role', 'user_type')
         }),
         ('Auditoría', {
             'fields': ('last_login', 'date_joined', 'created_at', 'updated_at')

@@ -1,13 +1,13 @@
 from rest_framework import serializers
 from src.users.models import User, Role
-from src.institutions.models import Institution
+from src.institutions.models import EnvironmentalInstitution
 
 class InstitutionSerializer(serializers.ModelSerializer):
     """
     Serializador para mostrar información básica de la institución dentro de las respuestas de usuario.
     """
     class Meta:
-        model = Institution
+        model = EnvironmentalInstitution
         fields = ['institution_id', 'institute_name']
 
 class RoleSerializer(serializers.ModelSerializer):
@@ -23,7 +23,7 @@ class UserSerializer(serializers.ModelSerializer):
     Serializador para leer datos de Usuario (Salida).
     Incluye objetos anidados completos para 'institution' y 'roles'.
     """
-     institution = InstitutionSerializer(read_only=True)
+    institution = InstitutionSerializer(read_only=True)
     role = RoleSerializer(read_only=True)
 
     class Meta:
@@ -67,6 +67,6 @@ class RegisterUserSerializer(serializers.Serializer):
         """
         Verifica que la institución referenciada exista en la base de datos.
         """
-        if not Institution.objects.filter(pk=value).exists():
+        if not EnvironmentalInstitution.objects.filter(pk=value).exists():
             raise serializers.ValidationError("La institución seleccionada no existe.")
         return value
