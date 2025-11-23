@@ -3,14 +3,22 @@ from django.core.exceptions import ValidationError
 from .models import EnvironmentalInstitution, InstitutionColorSet, IntegrationRequest
 from django.utils import timezone
 
-# Crea institución y colores de forma atómica. Falla todo si algo falla (ACID).
-# Recibe: data (dict con datos básicos), colors_list (lista de hex strings).
-# Devuelve: La instancia EnvironmentalInstitution creada.
-# Lanza: ValidationError si se superan los 5 colores permitidos.
 class InstitutionService:    
+    """
+    Capa de servicio para manejar la lógica de negocio de las Instituciones.
+    """
     @staticmethod
     def create_institution(data: dict, colors_list: list[str]) -> EnvironmentalInstitution:
-        # Iniciamos una transacción atómica. Si algo falla aquí, NADA se guarda en la BD.
+        """
+        Crea una institución y asigna sus colores corporativos de forma atómica.
+        Args:
+            data (dict): Diccionario con los datos del modelo EnvironmentalInstitution.
+            colors_list (list[str]): Lista de códigos hexadecimales de color.
+        Returns:
+            EnvironmentalInstitution: La instancia creada con sus relaciones.
+        Raises:
+            ValidationError: Si se supera el límite de colores permitidos (máx 5).
+        """
         with transaction.atomic():
             # 1. Crear la entidad padre
             institution = EnvironmentalInstitution.objects.create(**data)
@@ -33,13 +41,18 @@ class InstitutionService:
     def get_all_institutions():
         return EnvironmentalInstitution.objects.all().prefetch_related('colors')
 
-# Registra una solicitud validando que la institución no tenga otra pendiente (evita spam).
-# Recibe: data (dict validado). Devuelve: Instancia IntegrationRequest.
-# Lanza: ValidationError si ya existe una solicitud en estado PENDING.
-
 class IntegrationRequestService:
+    """
+    Capa de servicio para gestionar el flujo de aprobación de solicitudes.
+    """
     @staticmethod
     def create_request(data: dict) -> IntegrationRequest:
+        """
+        Registra una nueva solicitud de integración validando duplicados.
+
+        Evita que una misma institución tenga múltiples solicitudes pendientes
+        simultáneamente (prevención de spam).
+        """
         existing_pending = IntegrationRequest.objects.filter(
             institution=data['institution'], 
             request_status=IntegrationRequest.RequestStatus.PENDING
@@ -50,11 +63,16 @@ class IntegrationRequestService:
 
         return IntegrationRequest.objects.create(**data)
 
-    # Aprueba una solicitud, actualiza timestamps y asigna el revisor.
-    # Recibe: request_id (int), user (User admin). Devuelve: Instancia actualizada.
-    # Lanza: ValidationError si el ID no existe.
     @staticmethod
     def approve_request(request_id: int, user) -> IntegrationRequest:
+        """
+        Aprueba una solicitud existente, registrando auditoría del revisor.
+        Args:
+            request_id (int): ID de la solicitud.
+            user (User): Usuario administrador que realiza la aprobación.
+        Returns:
+            IntegrationRequest: La solicitud actualizada con estado APPROVED.
+        """
         try:
             integration_request = IntegrationRequest.objects.get(pk=request_id)
         except IntegrationRequest.DoesNotExist:
