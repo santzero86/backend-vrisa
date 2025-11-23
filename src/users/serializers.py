@@ -1,4 +1,5 @@
 from rest_framework import serializers
+from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from src.users.models import User, Role
 from src.institutions.models import EnvironmentalInstitution
 
@@ -70,3 +71,34 @@ class RegisterUserSerializer(serializers.Serializer):
         if not EnvironmentalInstitution.objects.filter(pk=value).exists():
             raise serializers.ValidationError("La institución seleccionada no existe.")
         return value
+
+class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
+    """
+    Personaliza el payload del token JWT para incluir información contextual
+    del usuario (Rol, Institución, Nombre) directamente en el token cifrado.
+    """
+    @classmethod
+    def get_token(cls, user):
+        token = super().get_token(user)
+
+        # Agregar datos personalizados al token (Claims)
+        token['email'] = user.email
+        token['full_name'] = f"{user.first_name} {user.last_name}"
+        
+        # Agregar Institución (si tiene)
+        if user.institution:
+            token['institution_id'] = user.institution.id
+            token['institution_name'] = user.institution.institute_name
+        else:
+            token['institution_id'] = None
+        
+        # Agregar Roles (Tomamos el primero por simplicidad, o una lista)
+        # Nota: Tu modelo User tiene ManyToMany con roles.
+        roles = list(user.roles.values_list('role_name', flat=True))
+        token['roles'] = roles
+        
+        # También agregamos si es staff/superuser para facilitar lógica en frontend
+        token['is_staff'] = user.is_staff
+        token['is_superuser'] = user.is_superuser
+
+        return token
