@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404
 from src.users.models import User, Role
+from src.institutions.models import EnvironmentalInstitution
 
 def create_user(validated_data: dict) -> User:
     """
@@ -31,7 +32,7 @@ def create_user(validated_data: dict) -> User:
 
     # transaccion para crear el usuario y asignar un rol por defecto hasta que un admin que lo verifique
     with transaction.atomic():
-        institution = get_object_or_404(Institution, pk=institution_id)
+        institution = get_object_or_404(EnvironmentalInstitution, pk=institution_id)
 
         user = User.objects.create_user(
             email=email,
