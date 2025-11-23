@@ -1,5 +1,5 @@
 from django.contrib import admin
-from src.users.models import EnvironmentalInstitution, IntegrationRequest, InstitutionColorSet
+from src.institutions.models import EnvironmentalInstitution, IntegrationRequest, InstitutionColorSet
 
 # Permite editar los colores directamente dentro de la pantalla de la Institución (Master-Detail).
 class InstitutionColorSetInline(admin.TabularInline):
