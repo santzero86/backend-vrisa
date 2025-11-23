@@ -31,6 +31,7 @@ INSTALLED_APPS = [
     'src.institutions.apps.InstitutionsConfig',
     'src.stations.apps.StationsConfig',
     'src.sensors.apps.SensorsConfig',
+    'src.measurements.apps.MeasurementsConfig',
     'rest_framework',
 ]
 
