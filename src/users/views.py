@@ -16,6 +16,7 @@ class CustomTokenObtainPairView(TokenObtainPairView):
 class UserRegistrationView(APIView):
     permission_classes = [permissions.AllowAny] 
     def post(self, request):
+        print("Data recibida:", request.data)
         # 1. Validar Entrada
         input_serializer = RegisterUserSerializer(data=request.data)
         if input_serializer.is_valid():
@@ -28,12 +29,12 @@ class UserRegistrationView(APIView):
                 return Response(output_serializer.data, status=status.HTTP_201_CREATED)
             
             except Exception as e:
-                # En una app real, aquí deberíamos registrar el error (logging)
+                print(f"Error interno: {str(e)}")
                 return Response(
                     {'error': 'Error interno del servidor', 'details': str(e)}, 
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-        
+        print("Errores:", input_serializer.errors) 
         return Response(input_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserDetailView(APIView):
