@@ -21,6 +21,11 @@ class VariableCatalog(models.Model):
     def __str__(self):
         return f"{self.name} ({self.unit})"
 
+    class Meta:
+        db_table = 'variable_catalog'  
+        verbose_name = "Catálogo de Variables"
+        verbose_name_plural = "Catálogos de Variables"
+
 class Measurement(models.Model):
     """
     Registro histórico de una medición individual.
@@ -48,11 +53,14 @@ class Measurement(models.Model):
     measure_date = models.DateTimeField(verbose_name="Fecha de Toma de Dato")
     created_at = models.DateTimeField(auto_now_add=True)
 
+    def __str__(self):
+        return f"{self.variable.code}: {self.value}"
+    
     class Meta:
+        db_table = 'measurement'  # Nombre limpio en DBeaver
+        verbose_name = "Medición"
+        verbose_name_plural = "Mediciones"
         ordering = ['-measure_date']
         indexes = [
             models.Index(fields=['sensor', 'measure_date']),
         ]
-
-    def __str__(self):
-        return f"{self.variable.code}: {self.value}"
