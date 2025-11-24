@@ -25,7 +25,7 @@ class UserSerializer(serializers.ModelSerializer):
     Incluye objetos anidados completos para 'institution' y 'roles'.
     """
     institution = InstitutionSerializer(read_only=True)
-    role = RoleSerializer(read_only=True)
+    roles = RoleSerializer(many=True, read_only=True) 
 
     class Meta:
         model = User
@@ -50,9 +50,9 @@ class RegisterUserSerializer(serializers.Serializer):
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
     role_id = serializers.IntegerField(required=False, allow_null=True)
+    institution_id = serializers.IntegerField(required=False, allow_null=True)
 
     job_title = serializers.CharField(max_length=150, required=False)
-    institution_id = serializers.IntegerField(required=True)
     professional_card_front = serializers.ImageField(required=False)
     professional_card_rear = serializers.ImageField(required=False)
 
@@ -65,6 +65,8 @@ class RegisterUserSerializer(serializers.Serializer):
         return value
     
     def validate_institution_id(self, value):
+        if value is None:
+            return None
         """
         Verifica que la institución referenciada exista en la base de datos.
         """

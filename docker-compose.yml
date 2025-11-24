@@ -11,8 +11,9 @@ services:
       - pgdata:/var/lib/postgresql/data
   
   backend:
+    image: vrisa-backend:1.0.0
     build: .
-    container_name: vrisa_django_container
+    container_name: vrisa_backend
     command: python manage.py runserver 0.0.0.0:8000
     volumes:
       - .:/app

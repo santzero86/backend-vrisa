@@ -25,14 +25,16 @@ def create_user(validated_data: dict) -> User:
     first_name = validated_data['first_name']
     last_name = validated_data['last_name']
     job_title = validated_data.get('job_title', '')
-    institution_id = validated_data['institution_id']
+    institution_id = validated_data.get('institution_id')
     
     card_front = validated_data.get('professional_card_front')
     card_rear = validated_data.get('professional_card_rear')
 
     # transaccion para crear el usuario y asignar un rol por defecto hasta que un admin que lo verifique
     with transaction.atomic():
-        institution = get_object_or_404(EnvironmentalInstitution, pk=institution_id)
+        institution = None
+        if institution_id:
+            institution = get_object_or_404(EnvironmentalInstitution, pk=institution_id)
 
         user = User.objects.create_user(
             email=email,
@@ -44,7 +46,7 @@ def create_user(validated_data: dict) -> User:
             professional_card_front=card_front,
             professional_card_rear=card_rear,
             is_active=False # Inactivo hasta verificación por administrador del sistema
-        )
+        ) # type: ignore
 
     return user
 

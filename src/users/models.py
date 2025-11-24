@@ -123,7 +123,7 @@ class User(AbstractUser):
     USERNAME_FIELD = 'email'
     REQUIRED_FIELDS = ['first_name', 'last_name']
     
-    objects = CustomUserManager()
+    objects = CustomUserManager() # type: ignore
     
     def __str__(self) -> str:
         return self.email
