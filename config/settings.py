@@ -33,16 +33,26 @@ INSTALLED_APPS = [
     'src.sensors.apps.SensorsConfig',
     'src.measurements.apps.MeasurementsConfig',
     'rest_framework',
+    'corsheaders',
 ]
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
     'django.contrib.sessions.middleware.SessionMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+]
+
+# Configuración de CORS
+# Esto permite peticiones desde el frontend
+CORS_ALLOWED_ORIGINS = [
+    "http://localhost:8088", 
+    "http://localhost:5173",
+    "http://127.0.0.1:8088",
 ]
 
 ROOT_URLCONF = 'config.urls'
@@ -70,6 +80,7 @@ REST_FRAMEWORK = {
     'DEFAULT_PERMISSION_CLASSES': (
         'rest_framework.permissions.IsAuthenticated',
     ),
+    'EXCEPTION_HANDLER': 'common.exception_handler.custom_exception_handler',
 }
 
 
