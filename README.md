@@ -23,9 +23,13 @@ pip install -r requirements.txt
 ```
 
 
-### Levantar el proyecto
+### Levantar el proyecto desde un contenedor Docker
 ```
-docker-compose up --build
+# Si es la primera vez, debe construirse la imagen
+docker compose up --build -d
+
+# En proximas veces, basta con levantar el contenedor
+docker compose up -d
 ```
 
 ###  Ejecucion de Migraciones 
