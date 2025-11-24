@@ -40,3 +40,8 @@ class Sensor(models.Model):
 
     def __str__(self):
         return f"{self.model} - {self.serial_number} ({self.status})"
+    
+    class Meta:
+        db_table = 'sensor' 
+        verbose_name = "Sensor"
+        verbose_name_plural = "Sensores"
