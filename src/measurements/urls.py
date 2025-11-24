@@ -8,4 +8,4 @@ router.register(r'data', MeasurementViewSet, basename='measurements')
 
 urlpatterns = [
     path('', include(router.urls)),
-]
+] 
