@@ -3,6 +3,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from src.users.models import User, Role
 from src.institutions.models import EnvironmentalInstitution
 
+
 class InstitutionSerializer(serializers.ModelSerializer):
     """
     Serializador para mostrar información básica de la institución dentro de las respuestas de usuario.
@@ -94,13 +95,19 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         else:
             token['institution_id'] = None
         
-        # Agregar Roles (Tomamos el primero por simplicidad, o una lista)
-        # Nota: Tu modelo User tiene ManyToMany con roles.
-        roles = list(user.roles.values_list('role_name', flat=True))
-        token['roles'] = roles
+        # Es superusuario de Django
+        if user.is_superuser:
+            token['primary_role'] = 'ADMIN'
         
-        # También agregamos si es staff/superuser para facilitar lógica en frontend
-        token['is_staff'] = user.is_staff
-        token['is_superuser'] = user.is_superuser
+        # Usuario normal, buscamos en la base de datos
+        else:
+            # Obtenemos el primer rol que tenga asignado
+            first_role = user.roles.first()
+            
+            if first_role:
+                token['primary_role'] = first_role.role_name.upper()
+            else:
+                # No es admin y no tiene rol asignado (ej: Ciudadano recién registrado)
+                token['primary_role'] = 'CITIZEN'
 
         return token
