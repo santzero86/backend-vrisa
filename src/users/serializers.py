@@ -3,6 +3,7 @@ from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
 from src.users.models import User, Role
 from src.institutions.models import EnvironmentalInstitution
 
+
 class InstitutionSerializer(serializers.ModelSerializer):
     """
     Serializador para mostrar información básica de la institución dentro de las respuestas de usuario.
@@ -83,7 +84,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
 
+        role = cls.get_primary_role(user)
+
         # Agregar datos personalizados al token (Claims)
+        token['primary_role'] = role
         token['email'] = user.email
         token['full_name'] = f"{user.first_name} {user.last_name}"
         
@@ -93,14 +97,19 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             token['institution_name'] = user.institution.institute_name
         else:
             token['institution_id'] = None
-        
-        # Agregar Roles (Tomamos el primero por simplicidad, o una lista)
-        # Nota: Tu modelo User tiene ManyToMany con roles.
-        roles = list(user.roles.values_list('role_name', flat=True))
-        token['roles'] = roles
-        
-        # También agregamos si es staff/superuser para facilitar lógica en frontend
-        token['is_staff'] = user.is_staff
-        token['is_superuser'] = user.is_superuser
 
         return token
+        
+
+    @staticmethod
+    def get_primary_role(user):
+        """Método auxiliar para centralizar la lógica del rol"""
+        if user.is_superuser:
+            return 'super_admin'
+        
+        # Busca el primer rol en la base de datos
+        first_role = user.roles.first()
+        if first_role:
+            return first_role.role_name
+            
+        return 'citizen'
