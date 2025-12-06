@@ -84,7 +84,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
 
+        role = cls.get_primary_role(user)
+
         # Agregar datos personalizados al token (Claims)
+        token['primary_role'] = role
         token['email'] = user.email
         token['full_name'] = f"{user.first_name} {user.last_name}"
         
@@ -94,20 +97,40 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             token['institution_name'] = user.institution.institute_name
         else:
             token['institution_id'] = None
-        
-        # Es superusuario de Django
-        if user.is_superuser:
-            token['primary_role'] = 'ADMIN'
-        
-        # Usuario normal, buscamos en la base de datos
-        else:
-            # Obtenemos el primer rol que tenga asignado
-            first_role = user.roles.first()
-            
-            if first_role:
-                token['primary_role'] = first_role.role_name.upper()
-            else:
-                # No es admin y no tiene rol asignado (ej: Ciudadano recién registrado)
-                token['primary_role'] = 'CITIZEN'
 
         return token
+        
+    def validate(self, attrs):
+        # Esta función controla la respuesta JSON que recibe el Frontend
+        data = super().validate(attrs)
+
+        # Calculamos el rol nuevamente para enviarlo en el JSON
+        role = self.get_primary_role(self.user)
+
+        # Agregamos datos extra a la respuesta (userData)
+        data['user'] = {
+            'id': self.user.id,
+            'email': self.user.email,
+            'first_name': self.user.first_name,
+            'last_name': self.user.last_name,
+            'primary_role': role,  # <--- Aquí va el campo unificado
+            'institution': {
+                'id': self.user.institution.id,
+                'name': self.user.institution.institute_name
+            } if self.user.institution else None
+        }
+
+        return data
+
+    @staticmethod
+    def get_primary_role(user):
+        """Método auxiliar para centralizar la lógica del rol"""
+        if user.is_superuser:
+            return 'ADMIN'
+        
+        # Busca el primer rol en la base de datos
+        first_role = user.roles.first()
+        if first_role:
+            return first_role.role_name.upper()
+            
+        return 'CITIZEN'
