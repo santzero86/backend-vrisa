@@ -100,27 +100,6 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
         return token
         
-    def validate(self, attrs):
-        # Esta función controla la respuesta JSON que recibe el Frontend
-        data = super().validate(attrs)
-
-        # Calculamos el rol nuevamente para enviarlo en el JSON
-        role = self.get_primary_role(self.user)
-
-        # Agregamos datos extra a la respuesta (userData)
-        data['user'] = {
-            'id': self.user.id,
-            'email': self.user.email,
-            'first_name': self.user.first_name,
-            'last_name': self.user.last_name,
-            'primary_role': role,  # <--- Aquí va el campo unificado
-            'institution': {
-                'id': self.user.institution.id,
-                'name': self.user.institution.institute_name
-            } if self.user.institution else None
-        }
-
-        return data
 
     @staticmethod
     def get_primary_role(user):
