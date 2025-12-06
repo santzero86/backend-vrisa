@@ -126,11 +126,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_primary_role(user):
         """Método auxiliar para centralizar la lógica del rol"""
         if user.is_superuser:
-            return 'ADMIN'
+            return 'super_admin'
         
         # Busca el primer rol en la base de datos
         first_role = user.roles.first()
         if first_role:
-            return first_role.role_name.upper()
+            return first_role.role_name
             
-        return 'CITIZEN'
+        return 'citizen'
