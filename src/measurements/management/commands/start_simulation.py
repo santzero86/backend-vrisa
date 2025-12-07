@@ -2,32 +2,42 @@ import time
 import random
 from django.core.management.base import BaseCommand
 from django.utils import timezone
+from django.db.utils import OperationalError, ProgrammingError
 from src.sensors.models import Sensor
 from src.measurements.models import VariableCatalog
 from src.measurements.services import MeasurementService
-from src.measurements.utils.cali_profile import HOURLY_PROFILE # <--- Importamos el perfil
+from src.measurements.utils.cali_profile import HOURLY_PROFILE
 
 class Command(BaseCommand):
     help = 'Simula datos basados en perfiles horarios reales de Cali'
 
     def handle(self, *args, **kwargs):
+        self.stdout.write(self.style.WARNING('Esperando a que las migraciones terminen...'))
+        db_ready = False
+        while not db_ready:
+            try:
+                # Intentamos hacer una consulta ligera para ver si la tabla existe
+                Sensor.objects.exists()
+                db_ready = True
+            except (OperationalError, ProgrammingError):
+                # Si falla porque la tabla no existe o la DB se está reiniciando
+                self.stdout.write('La base de datos aún no tiene las tablas. Reintentando en 2s...')
+                time.sleep(2)
+        
+        self.stdout.write(self.style.SUCCESS('Base de datos lista'))
         self.stdout.write(self.style.SUCCESS('Iniciando simulación realista (Perfil Cali)...'))
 
         while True:
             try:
-                sensors = Sensor.objects.filter(status=Sensor.Status.ACTIVE)
-                if not sensors.exists():
-                    self.stdout.write(self.style.WARNING('Esperando sensores activos...'))
-                    time.sleep(5)
-                    continue
-
-                # 1. Determinar la hora actual del sistema simulado
                 now = timezone.now()
-                current_hour = now.hour
+                current_hour = str(now.hour) 
+                base_data = HOURLY_PROFILE.get(current_hour, HOURLY_PROFILE.get("0"))
                 
-                # Obtenemos los valores base para esta hora
-                base_data = HOURLY_PROFILE.get(current_hour, HOURLY_PROFILE[0])
-
+                if not base_data:
+                     self.stdout.write(self.style.ERROR('Error leyendo el perfil horario. Revisa cali_profile.py'))
+                     time.sleep(5)
+                     continue
+                 
                 # Recuperar variables del catálogo
                 try:
                     var_pm25 = VariableCatalog.objects.get(code="PM2.5")
@@ -36,6 +46,12 @@ class Command(BaseCommand):
                 except VariableCatalog.DoesNotExist:
                     self.stdout.write(self.style.ERROR('Faltan variables. Ejecuta seed_db.'))
                     break
+                
+                sensors = Sensor.objects.filter(status=Sensor.Status.ACTIVE)
+                if not sensors.exists():
+                    self.stdout.write(self.style.WARNING('Esperando sensores activos...'))
+                    time.sleep(5)
+                    continue
 
                 for sensor in sensors:
                     # 2. Algoritmo de Variación Natural
