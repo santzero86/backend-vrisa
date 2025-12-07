@@ -52,6 +52,11 @@ class RegisterUserSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=150)
     role_id = serializers.IntegerField(required=False, allow_null=True)
     institution_id = serializers.IntegerField(required=False, allow_null=True)
+    
+    # Nuevos campos para el flujo de registro
+    belongs_to_organization = serializers.BooleanField(required=False, default=False)
+    requested_role = serializers.CharField(max_length=50, required=False, allow_null=True, allow_blank=True)
+    phone = serializers.CharField(max_length=20, required=False, allow_null=True, allow_blank=True)
 
     job_title = serializers.CharField(max_length=150, required=False)
     professional_card_front = serializers.ImageField(required=False)
@@ -87,6 +92,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Agregar datos personalizados al token
         token['email'] = user.email
         token['full_name'] = f"{user.first_name} {user.last_name}"
+        token['first_name'] = user.first_name
         
         # Agregar Institución (si tiene)
         if user.institution:
@@ -94,6 +100,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             token['institution_name'] = user.institution.institute_name
         else:
             token['institution_id'] = None
+        
+        # Agregar campos del flujo de registro
+        token['belongs_to_organization'] = user.belongs_to_organization
+        token['requested_role'] = user.requested_role
+        token['registration_complete'] = user.registration_complete
         
         # Agregar Roles
         token['primary_role'] = cls.get_primary_role(user)
@@ -114,4 +125,5 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         if user.roles.exists():
             return user.roles.first().role_name.lower()
         
-        return 'citizen'
+        # Si no tiene rol asignado, usar el rol solicitado o citizen
+        return user.requested_role if user.requested_role else 'citizen'
