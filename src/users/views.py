@@ -34,7 +34,7 @@ class UserRegistrationView(APIView):
                     {'error': 'Error interno del servidor', 'details': str(e)}, 
                     status=status.HTTP_500_INTERNAL_SERVER_ERROR
                 )
-        print("Errores:", input_serializer.errors) 
+        print("Errores:", input_serializer.errors)
         return Response(input_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
 
 class UserDetailView(APIView):
