@@ -1,5 +1,6 @@
 from rest_framework import serializers
 from .models import EnvironmentalInstitution, InstitutionColorSet, IntegrationRequest
+import json
 
 class InstitutionColorSetSerializer(serializers.ModelSerializer):
     """
@@ -65,7 +66,7 @@ class InstitutionRegistrationSerializer(serializers.ModelSerializer):
         model = EnvironmentalInstitution
         fields = ['institute_name', 'physic_address', 'institute_logo', 'colors']
 
-    def validate_colors_json(self, value):
+    def validate_colors(self, value):
         try:
             colors = json.loads(value)
             if not isinstance(colors, list):
