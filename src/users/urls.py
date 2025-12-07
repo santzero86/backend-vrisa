@@ -1,6 +1,6 @@
 from django.urls import path
 from rest_framework_simplejwt.views import TokenRefreshView
-from src.users.views import CustomTokenObtainPairView, UserDetailView, UserRegistrationView
+from src.users.views import CustomTokenObtainPairView, UserDetailView, UserRegistrationView, UserStatsView
 
 urlpatterns = [
     # Autenticación (JWT)
@@ -10,4 +10,5 @@ urlpatterns = [
     # Gestión de Usuarios
     path('register/', UserRegistrationView.as_view(), name='user-register'),
     path('<int:user_id>/', UserDetailView.as_view(), name='user-detail'),
+    path('stats/', UserStatsView.as_view(), name='user-stats'),
 ]

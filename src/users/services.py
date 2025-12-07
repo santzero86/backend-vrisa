@@ -57,3 +57,9 @@ def get_user_by_id(user_id: int) -> User:
     """
     user = get_object_or_404(User, pk=user_id)
     return user
+
+def get_total_users_count() -> int:
+    """
+    Retorna el número total de usuarios registrados en el sistema.
+    """
+    return User.objects.count()
