@@ -84,10 +84,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     def get_token(cls, user):
         token = super().get_token(user)
 
-        role = cls.get_primary_role(user)
-
-        # Agregar datos personalizados al token (Claims)
-        token['primary_role'] = role
+        # Agregar datos personalizados al token
         token['email'] = user.email
         token['full_name'] = f"{user.first_name} {user.last_name}"
         
@@ -97,6 +94,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             token['institution_name'] = user.institution.institute_name
         else:
             token['institution_id'] = None
+        
+        # Agregar Roles
+        token['primary_role'] = cls.get_primary_role(user)
+        token['roles_list'] = list(user.roles.values_list('role_name', flat=True))
 
         return token
         
@@ -106,9 +107,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         """Método auxiliar para centralizar la lógica del rol"""
         if user.is_superuser:
             return 'super_admin'
+        elif user.is_staff:
+            return 'staff'
         
         # Busca el primer rol en la base de datos
-        first_role = user.roles.first()
+        first_role = user.roles.first().role_name.lower()
         if first_role:
             return first_role.role_name
             
