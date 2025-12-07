@@ -12,7 +12,7 @@ def create_user(validated_data: dict) -> User:
     2. Inicia una transacción atómica para asegurar integridad.
     3. Vincula el usuario a la Institución especificada.
     4. Guarda los archivos de la tarjeta profesional si se proporcionan.
-    5. Crea el usuario con 'is_active=False' (esperando validación de admin).
+    5. Crea el usuario con 'is_active=True'.
     
     Args:
         validated_data (dict): Diccionario con datos ya validados por el serializador.
@@ -26,6 +26,14 @@ def create_user(validated_data: dict) -> User:
     last_name = validated_data['last_name']
     job_title = validated_data.get('job_title', '')
     institution_id = validated_data.get('institution_id')
+    
+    # Nuevos campos del flujo de registro
+    belongs_to_organization = validated_data.get('belongs_to_organization', False)
+    requested_role = validated_data.get('requested_role', 'citizen')
+    phone = validated_data.get('phone', '')
+    
+    # Si no pertenece a organización, es ciudadano y su registro está completo
+    registration_complete = not belongs_to_organization or requested_role == 'citizen'
     
     card_front = validated_data.get('professional_card_front')
     card_rear = validated_data.get('professional_card_rear')
@@ -42,7 +50,11 @@ def create_user(validated_data: dict) -> User:
             first_name=first_name,
             last_name=last_name,
             job_title=job_title,
+            phone=phone,
             institution=institution,
+            belongs_to_organization=belongs_to_organization,
+            requested_role=requested_role if requested_role else 'citizen',
+            registration_complete=registration_complete,
             professional_card_front=card_front,
             professional_card_rear=card_rear,
             is_active=True  # Activo por defecto
