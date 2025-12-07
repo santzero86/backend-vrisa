@@ -64,7 +64,6 @@ class Command(BaseCommand):
         # Verificamos si existe por email
         if not User.objects.filter(email=email).exists():
             user = User.objects.create_user(
-                username=email,
                 email=email,
                 password=password,
                 first_name='Pepito',
@@ -72,7 +71,7 @@ class Command(BaseCommand):
                 job_title='Director Técnico',
                 institution=institution,
                 is_active=True
-            )
+            ) # type: ignore
             
             # Asignar rol de Admin de Estación
             role_admin = Role.objects.get(role_name='station_admin')
@@ -103,6 +102,8 @@ class Command(BaseCommand):
             self.stdout.write(f'- Estación creada: {station.station_name} (Token: {station.authentication_token})')
         else:
             self.stdout.write(f'- Estación ya existía: {station.station_name}')
+        
+        return station
 
     def create_variables(self):
         """Inicializa el catálogo de variables"""
