@@ -38,9 +38,10 @@ class EnvironmentalInstitutionSerializer(serializers.ModelSerializer):
             'institute_logo',
             'colors', 
             'colors_input',
-            'created_at'
+            'created_at',
+            'validation_status'
         ]
-        read_only_fields = ['created_at']
+        read_only_fields = ['created_at', 'validation_status']
 
 class IntegrationRequestSerializer(serializers.ModelSerializer):
     """

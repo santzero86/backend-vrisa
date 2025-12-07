@@ -124,3 +124,22 @@ class RegisterInstitutionView(APIView):
                 )
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ApproveInstitutionView(APIView):
+    """
+    Endpoint dedicado para aprobar una institución.
+    Ruta: POST /api/institutions/requests/<int:pk>/approve/
+    """
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request, pk):
+        try:
+            institution = InstitutionService.approve_institution_service(pk)
+            # Retornamos la data actualizada
+            serializer = EnvironmentalInstitutionSerializer(institution)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"detail": "Error aprobando la institución", "error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
