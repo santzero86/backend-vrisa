@@ -1,30 +1,62 @@
-# Perfil aproximado de calidad del aire en Cali (basado en comportamiento histórico típico)
-# Key: Hora del día (0-23)
-# Values: Promedios esperados para esa hora
+import os
+import pandas as pd
+from django.conf import settings
 
-HOURLY_PROFILE = {
-    0:  {'PM2.5': 15, 'TEMP': 21, 'HUM': 85}, # Medianoche
-    1:  {'PM2.5': 12, 'TEMP': 20, 'HUM': 86},
-    2:  {'PM2.5': 10, 'TEMP': 20, 'HUM': 87},
-    3:  {'PM2.5': 8,  'TEMP': 19, 'HUM': 88},
-    4:  {'PM2.5': 8,  'TEMP': 19, 'HUM': 88},
-    5:  {'PM2.5': 12, 'TEMP': 19, 'HUM': 89}, # Empieza actividad
-    6:  {'PM2.5': 25, 'TEMP': 20, 'HUM': 85}, # Tráfico mañana
-    7:  {'PM2.5': 35, 'TEMP': 21, 'HUM': 80}, # Pico tráfico
-    8:  {'PM2.5': 30, 'TEMP': 23, 'HUM': 75},
-    9:  {'PM2.5': 25, 'TEMP': 25, 'HUM': 70},
-    10: {'PM2.5': 20, 'TEMP': 27, 'HUM': 65},
-    11: {'PM2.5': 18, 'TEMP': 29, 'HUM': 60},
-    12: {'PM2.5': 15, 'TEMP': 31, 'HUM': 55}, # Mediodía (calor, menos tráfico)
-    13: {'PM2.5': 15, 'TEMP': 32, 'HUM': 50},
-    14: {'PM2.5': 18, 'TEMP': 32, 'HUM': 48}, # Max calor
-    15: {'PM2.5': 20, 'TEMP': 31, 'HUM': 50},
-    16: {'PM2.5': 22, 'TEMP': 30, 'HUM': 55},
-    17: {'PM2.5': 30, 'TEMP': 28, 'HUM': 60}, # Tráfico tarde
-    18: {'PM2.5': 40, 'TEMP': 27, 'HUM': 65}, # Pico tráfico regreso
-    19: {'PM2.5': 35, 'TEMP': 26, 'HUM': 70},
-    20: {'PM2.5': 30, 'TEMP': 25, 'HUM': 75},
-    21: {'PM2.5': 25, 'TEMP': 24, 'HUM': 78},
-    22: {'PM2.5': 20, 'TEMP': 23, 'HUM': 80},
-    23: {'PM2.5': 18, 'TEMP': 22, 'HUM': 82},
-}
+# 1. Ruta al archivo CSV
+CSV_PATH = os.path.join(settings.BASE_DIR, 'LA_daily_air_quality.csv')
+
+def calcular_perfil_con_pandas():
+    # Diccionario por defecto por si falla la lectura (para que no se caiga el sistema)
+    perfil_por_defecto = {0: {'PM2.5': 14.2, 'TEMP': 21.5, 'HUM': 82.1}} 
+
+    if not os.path.exists(CSV_PATH):
+        print(f"No se encontró el archivo {CSV_PATH}. Usando perfil por defecto.")
+        return perfil_por_defecto
+
+    try:
+        # 2. Leemos el dataset
+        df = pd.read_csv(CSV_PATH)
+        
+        # Convertimos la fecha para entender las horas
+        df['date'] = pd.to_datetime(df['date'])
+        
+        # 3. Agrupamos por hora (0 a 23) y sacamos el promedio de TODO
+        # Esto hace el trabajo matemático difícil por ti
+        df['hour'] = df['date'].dt.hour
+        promedios = df.groupby('hour').mean(numeric_only=True)
+
+        # 4. Construimos el diccionario final (HOURLY_PROFILE)
+        hourly_profile = {}
+
+        for hora in range(24):
+            if hora in promedios.index:
+                fila = promedios.loc[hora]
+                
+                # Aquí mapeamos las columnas de TU CSV a las variables del sistema
+                hourly_profile[str(hora)] = {
+                    # Variables que SÍ están en el CSV:
+                    "PM2.5": float(round(fila['pm2_5'], 2)),
+                    "PM10":  float(round(fila['pm10'], 2)),
+                    "CO":    float(round(fila['carbon_monoxide'], 2)),
+                    "NO2":   float(round(fila['nitrogen_dioxide'], 2)),
+                    "SO2":   float(round(fila['sulphur_dioxide'], 2)),
+                    "O3":    float(round(fila['ozone'], 2)),
+
+                    # Variables que NO están en el CSV (pero el sistema las necesita):
+                    # Las simulamos o dejamos fijas para que no falle start_simulation.py
+                    "TEMP": 25.0, 
+                    "HUM": 70.0
+                }
+            else:
+                # Si falta alguna hora en el CSV, rellenamos con genéricos
+                hourly_profile[str(hora)] = {"PM2.5": 10, "TEMP": 25, "HUM": 70}
+
+        print("Perfil de Cali generado exitosamente con Pandas.")
+        return hourly_profile
+
+    except Exception as e:
+        print(f"Error calculando perfil: {e}")
+        return perfil_por_defecto
+
+# Esta variable es la que start_simulation.py va a leer.
+HOURLY_PROFILE = calcular_perfil_con_pandas()
