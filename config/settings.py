@@ -34,6 +34,7 @@ INSTALLED_APPS = [
     'src.measurements.apps.MeasurementsConfig',
     'rest_framework',
     'corsheaders',
+    'django_extensions',
 ]
 
 MIDDLEWARE = [
