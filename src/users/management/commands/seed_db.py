@@ -8,7 +8,7 @@ from src.measurements.models import VariableCatalog
 from src.sensors.models import Sensor
 
 class Command(BaseCommand):
-    help = 'Popula la DB con datos semilla y configura variables/sensores'
+    help = 'Puebla la DB con datos semilla y configura variables/sensores'
 
     def handle(self, *args, **kwargs):
         try:
