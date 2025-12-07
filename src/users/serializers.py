@@ -110,9 +110,8 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         elif user.is_staff:
             return 'staff'
         
-        # Busca el primer rol en la base de datos
-        first_role = user.roles.first().role_name.lower()
-        if first_role:
-            return first_role.role_name
-            
+        # Busca el primer rol en la base de datos, si existen roles registrados
+        if user.roles.exists():
+            return user.roles.first().role_name.lower()
+        
         return 'citizen'
