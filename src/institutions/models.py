@@ -16,7 +16,12 @@ class EnvironmentalInstitution(models.Model):
     """
     institute_name = models.CharField(max_length=255, unique=True, verbose_name="Nombre de la Institución")
     physic_address = models.CharField(max_length=255, verbose_name="Dirección Física")
-    institute_logo = models.ImageField(upload_to='institution_logos/', null=True, blank=True, verbose_name="Logo")
+    institute_logo = models.ImageField(
+        upload_to='institution_logos/',
+        null=True,
+        blank=True,
+        verbose_name="Logo"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
     validation_status = models.CharField(
