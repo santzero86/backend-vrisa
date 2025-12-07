@@ -1,7 +1,8 @@
+from .models import EnvironmentalInstitution, InstitutionColorSet, IntegrationRequest
 from django.db import transaction
 from django.core.exceptions import ValidationError
-from .models import EnvironmentalInstitution, InstitutionColorSet, IntegrationRequest
 from django.utils import timezone
+from src.users.models import User
 
 class InstitutionService:    
     """
@@ -40,6 +41,28 @@ class InstitutionService:
     @staticmethod
     def get_all_institutions():
         return EnvironmentalInstitution.objects.all().prefetch_related('colors')
+    
+    @staticmethod
+    def register_institution(data: dict, colors: list, representative_user: User) -> EnvironmentalInstitution:
+        """
+        Registra una institución, sus colores y asigna al usuario creador como representante
+        dentro de una transacción atómica.
+        """
+        unique_colors = list(set(colors))
+        with transaction.atomic():
+            institution = EnvironmentalInstitution.objects.create(**data)
+
+            color_objects = [
+                InstitutionColorSet(institution=institution, color_hex=color)
+                for color in unique_colors 
+            ]
+            InstitutionColorSet.objects.bulk_create(color_objects)
+
+            # Actualizamos el usuario representante para que pertenezca a esta institución
+            representative_user.institution = institution
+            representative_user.save()
+        
+        return institution
 
 class IntegrationRequestService:
     """

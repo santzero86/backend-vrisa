@@ -3,6 +3,11 @@ from django.conf import settings
 
 User = settings.AUTH_USER_MODEL
 
+class ValidationStatus(models.TextChoices):
+    PENDING = 'PENDING', 'Pendiente de Validación'
+    ACCEPTED = 'ACCEPTED', 'Aceptada'
+    REJECTED = 'REJECTED', 'Rechazada'
+
 class EnvironmentalInstitution(models.Model):
     """
     Representa una entidad institucional dentro del sistema ambiental.    
@@ -11,9 +16,20 @@ class EnvironmentalInstitution(models.Model):
     """
     institute_name = models.CharField(max_length=255, unique=True, verbose_name="Nombre de la Institución")
     physic_address = models.CharField(max_length=255, verbose_name="Dirección Física")
-    institute_logo = models.ImageField(upload_to='institution_logos/', null=True, blank=True, verbose_name="Logo")
+    institute_logo = models.ImageField(
+        upload_to='institution_logos/',
+        null=True,
+        blank=True,
+        verbose_name="Logo"
+    )
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
+    validation_status = models.CharField(
+        max_length=20,
+        choices=ValidationStatus.choices,
+        default=ValidationStatus.PENDING,
+        verbose_name="Estado de Validación"
+    )
     
     def __str__(self):
         return self.institute_name
@@ -77,16 +93,10 @@ class IntegrationRequest(models.Model):
         verbose_name="Administrador de Estación Propuesto"
     )
 
-    # Estado de la solicitud
-    class RequestStatus(models.TextChoices):
-        PENDING = 'PENDING', 'Pendiente'
-        APPROVED = 'APPROVED', 'Aprobada'
-        REJECTED = 'REJECTED', 'Rechazada'
-
     request_status = models.CharField(
         max_length=10,
-        choices=RequestStatus.choices,
-        default=RequestStatus.PENDING,
+        choices=ValidationStatus.choices,
+        default=ValidationStatus.PENDING,
         verbose_name="Estado de la Solicitud"
     )
     

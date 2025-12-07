@@ -1,9 +1,11 @@
 from rest_framework import viewsets, permissions, status
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.parsers import MultiPartParser, FormParser
+from rest_framework.views import APIView
 from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import EnvironmentalInstitution, IntegrationRequest
-from .serializers import EnvironmentalInstitutionSerializer, IntegrationRequestSerializer
+from .serializers import EnvironmentalInstitutionSerializer, InstitutionRegistrationSerializer, IntegrationRequestSerializer
 from .services import InstitutionService, IntegrationRequestService
 
 class InstitutionViewSet(viewsets.ModelViewSet):
@@ -86,3 +88,39 @@ class IntegrationRequestViewSet(viewsets.ModelViewSet):
              return Response({"detail": e.messages}, status=status.HTTP_404_NOT_FOUND)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class RegisterInstitutionView(APIView):
+    """
+    Endpoint para que un representante registre su institución.
+    Soporta multipart/form-data para subir el logo.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    parser_classes = (MultiPartParser, FormParser) # Crucial para subir imágenes
+
+    def post(self, request):
+        serializer = InstitutionRegistrationSerializer(data=request.data)
+        
+        if serializer.is_valid():
+            validated_data = serializer.validated_data
+            colors = validated_data.pop('colors')
+            
+            try:
+                # Llamada al servicio atómico
+                institution = InstitutionService.register_institution(
+                    data=validated_data,
+                    colors=colors,
+                    representative_user=request.user
+                )
+                
+                # Devolvemos la institución creada usando el serializador de lectura estándar
+                return Response(
+                    EnvironmentalInstitutionSerializer(institution).data, 
+                    status=status.HTTP_201_CREATED
+                )
+            except Exception as e:
+                return Response(
+                    {"detail": str(e)}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        
+        return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)

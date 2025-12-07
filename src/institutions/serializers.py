@@ -1,6 +1,6 @@
-# src/institutions/serializers.py
 from rest_framework import serializers
 from .models import EnvironmentalInstitution, InstitutionColorSet, IntegrationRequest
+import json
 
 class InstitutionColorSetSerializer(serializers.ModelSerializer):
     """
@@ -53,3 +53,24 @@ class IntegrationRequestSerializer(serializers.ModelSerializer):
         model = IntegrationRequest
         fields = '__all__'
         read_only_fields = ['request_date', 'reviewed_by', 'review_date']
+
+class InstitutionRegistrationSerializer(serializers.ModelSerializer):
+    """
+    Serializador específico para el registro inicial de una institución.
+    Maneja la recepción de colores como un string JSON (dado que viene de FormData).
+    """
+    # Se reciben los colores como un string JSON: '["#FFF", "#000"]'
+    colors = serializers.CharField(write_only=True)
+
+    class Meta:
+        model = EnvironmentalInstitution
+        fields = ['institute_name', 'physic_address', 'institute_logo', 'colors']
+
+    def validate_colors(self, value):
+        try:
+            colors = json.loads(value)
+            if not isinstance(colors, list):
+                raise serializers.ValidationError("El formato debe ser una lista de colores.")
+            return colors
+        except ValueError:
+            raise serializers.ValidationError("JSON de colores inválido.")
