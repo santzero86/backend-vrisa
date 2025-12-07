@@ -45,7 +45,7 @@ def create_user(validated_data: dict) -> User:
             institution=institution,
             professional_card_front=card_front,
             professional_card_rear=card_rear,
-            is_active=False # Inactivo hasta verificación por administrador del sistema
+            is_active=True  # Activo por defecto
         ) # type: ignore
 
     return user
