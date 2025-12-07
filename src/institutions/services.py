@@ -1,6 +1,7 @@
 from .models import EnvironmentalInstitution, InstitutionColorSet, IntegrationRequest
 from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.shortcuts import get_object_or_404
 from django.utils import timezone
 from src.users.models import User
 
@@ -62,6 +63,21 @@ class InstitutionService:
             representative_user.institution = institution
             representative_user.save()
         
+        return institution
+    
+    @staticmethod
+    def approve_institution_service(institution_id: int):
+        """
+        Cambia el estado de validación de una institución a ACCEPTED.
+        """
+        institution = get_object_or_404(EnvironmentalInstitution, pk=institution_id)
+
+        if institution.validation_status == 'ACCEPTED':
+            # Opcional: Lanzar error o simplemente retornar sin cambios
+            return institution
+
+        institution.validation_status = 'ACCEPTED'
+        institution.save()
         return institution
 
 class IntegrationRequestService:

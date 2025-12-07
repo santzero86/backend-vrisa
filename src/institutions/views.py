@@ -46,24 +46,6 @@ class InstitutionViewSet(viewsets.ModelViewSet):
             return Response({"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
-    
-    @action(detail=True, methods=['post'], permission_classes=[permissions.IsAdminUser])
-    def approve(self, request, pk=None):
-        """
-        Endpoint: POST /api/institutions/institutes/{id}/approve/
-        Cambia el estado de una institución de PENDING a ACCEPTED.
-        """
-        try:
-            institution = self.get_object()
-            if institution.validation_status == 'ACCEPTED':
-                return Response({'detail': 'Esta institución ya está aprobada.'}, status=status.HTTP_400_BAD_REQUEST)
-            
-            institution.validation_status = 'ACCEPTED'
-            institution.save()
-            
-            return Response({'status': 'Institución aprobada correctamente'})
-        except Exception as e:
-            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
 
 class IntegrationRequestViewSet(viewsets.ModelViewSet):
     """
@@ -142,3 +124,22 @@ class RegisterInstitutionView(APIView):
                 )
         
         return Response(serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+class ApproveInstitutionView(APIView):
+    """
+    Endpoint dedicado para aprobar una institución.
+    Ruta: POST /api/institutions/requests/<int:pk>/approve/
+    """
+    permission_classes = [permissions.IsAdminUser]
+
+    def post(self, request, pk):
+        try:
+            institution = InstitutionService.approve_institution_service(pk)
+            # Retornamos la data actualizada
+            serializer = EnvironmentalInstitutionSerializer(institution)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"detail": "Error aprobando la institución", "error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
