@@ -3,7 +3,7 @@ import pandas as pd
 from django.conf import settings
 
 # 1. Ruta al archivo CSV
-CSV_PATH = os.path.join(settings.BASE_DIR, 'LA_daily_air_quality.csv')
+CSV_PATH = os.path.join(settings.BASE_DIR, 'data/LA_daily_air_quality.csv')
 
 def calcular_perfil_con_pandas():
     # Diccionario por defecto por si falla la lectura (para que no se caiga el sistema)
