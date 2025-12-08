@@ -1,6 +1,7 @@
+from common.validation import ValidationStatus
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from src.users.models import User, Role
+from src.users.models import User, Role, UserRole
 from src.institutions.models import EnvironmentalInstitution
 
 
@@ -101,13 +102,11 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         else:
             token['institution_id'] = None
         
-        # Agregar campos del flujo de registro
-        token['belongs_to_organization'] = user.belongs_to_organization
-        token['requested_role'] = user.requested_role
-        token['registration_complete'] = user.registration_complete
-        
         # Agregar Roles
-        token['primary_role'] = cls.get_primary_role(user)
+        primary_role, role_status = cls.get_primary_role(user)
+        
+        token['primary_role'] = primary_role
+        token['role_status'] = role_status
         token['roles_list'] = list(user.roles.values_list('role_name', flat=True))
 
         return token
@@ -115,15 +114,26 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     @staticmethod
     def get_primary_role(user):
-        """Método auxiliar para centralizar la lógica del rol"""
+        """
+        Determina el rol principal y su estado.
+        Retorna siempre una tupla: (nombre_rol, estado)
+        """
         if user.is_superuser:
-            return 'super_admin'
+            return 'super_admin', 'APPROVED'
         elif user.is_staff:
-            return 'staff'
+            return 'staff', 'APPROVED'
         
-        # Busca el primer rol en la base de datos, si existen roles registrados
-        if user.roles.exists():
-            return user.roles.first().role_name.lower()
+        user_roles = UserRole.objects.filter(user=user)
         
-        # Si no tiene rol asignado, usar el rol solicitado o citizen
-        return user.requested_role if user.requested_role else 'citizen'
+        # Prioridad 1: Roles ya aprobados
+        approved_assignment = user_roles.filter(status=ValidationStatus.ACCEPTED).first()
+        if approved_assignment:
+            return approved_assignment.role.role_name, 'APPROVED'
+        
+        # Prioridad 2: Roles pendientes
+        pending_assignment = user_roles.filter(status=ValidationStatus.PENDING).first()
+        if pending_assignment:
+            return pending_assignment.role.role_name, 'PENDING'
+        
+        # Default: Ciudadano aprobado
+        return 'citizen', 'APPROVED'
