@@ -5,6 +5,16 @@ from rest_framework.response import Response
 from .models import Measurement, VariableCatalog
 from .serializers import MeasurementSerializer, VariableCatalogSerializer
 from .services import MeasurementService
+from rest_framework.decorators import action
+from django.utils.dateparse import parse_datetime
+from src.sensors.models import Sensor
+from django.http import FileResponse
+from rest_framework.views import APIView
+from rest_framework import permissions
+from django.shortcuts import get_object_or_404
+from src.stations.models import MonitoringStation
+from .report_generator import PDFReportGenerator
+import io
 
 class VariableCatalogViewSet(viewsets.ModelViewSet):
     """
@@ -89,3 +99,55 @@ class MeasurementViewSet(viewsets.ModelViewSet):
         data = queryset.values("measure_date", "value").order_by("measure_date")
 
         return Response(list(data), status=status.HTTP_200_OK)
+
+class AirQualityReportView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        station_id = request.query_params.get('station_id')
+        date = request.query_params.get('date') # Formato YYYY-MM-DD
+
+        if not station_id or not date:
+            return Response({"error": "station_id y date son requeridos"}, status=400)
+
+        station = get_object_or_404(MonitoringStation, pk=station_id)
+        
+        buffer = io.BytesIO()
+        report = PDFReportGenerator(buffer)
+        report.generate_air_quality_report(station, date)
+        
+        buffer.seek(0)
+        return FileResponse(buffer, as_attachment=True, filename=f'calidad_aire_{date}.pdf')
+
+class TrendsReportView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        station_id = request.query_params.get('station_id')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+
+        if not station_id or not start_date or not end_date:
+            return Response({"error": "Faltan parámetros"}, status=400)
+
+        station = get_object_or_404(MonitoringStation, pk=station_id)
+
+        buffer = io.BytesIO()
+        report = PDFReportGenerator(buffer)
+        report.generate_trends_report(station, start_date, end_date)
+        
+        buffer.seek(0)
+        return FileResponse(buffer, as_attachment=True, filename='tendencias.pdf')
+
+class AlertsReportView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        station_id = request.query_params.get('station_id') # Opcional
+
+        buffer = io.BytesIO()
+        report = PDFReportGenerator(buffer)
+        report.generate_alerts_report(station_id)
+        
+        buffer.seek(0)
+        return FileResponse(buffer, as_attachment=True, filename='alertas_criticas.pdf')    
