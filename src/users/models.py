@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
+from common.validation import ValidationStatus
 from src.institutions.models import EnvironmentalInstitution
 
 
@@ -92,12 +93,14 @@ class User(AbstractUser):
 
     Atributos principales:
         email: Identificador único del usuario.
+        phone: Número de contacto del usuario.
         job_title: Cargo laboral dentro de la institución, es opcional.
         institution: Relación con la entidad ambiental a la que pertenece, es opcional.
         professional_card_*: Archivos digitales de la tarjeta profesional, es opcional.
     """
     username = None
     email = models.EmailField(_('dirección de correo'), unique=True)
+    phone = models.CharField(max_length=20, verbose_name="Teléfono")
     job_title = models.CharField(max_length=150, blank=True, null=True)
     professional_card_front = models.ImageField(upload_to='users/cards/', blank=True, null=True)
     professional_card_rear = models.ImageField(upload_to='users/cards/', blank=True, null=True)
@@ -121,7 +124,7 @@ class User(AbstractUser):
     )
 
     USERNAME_FIELD = 'email'
-    REQUIRED_FIELDS = ['first_name', 'last_name']
+    REQUIRED_FIELDS = ['first_name', 'last_name', 'phone']
     
     objects = CustomUserManager() # type: ignore
     
@@ -143,6 +146,12 @@ class UserRole(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     role = models.ForeignKey(Role, on_delete=models.CASCADE)
     
+    approved_status = models.CharField(
+        max_length=20,
+        choices=ValidationStatus.choices,
+        default=ValidationStatus.PENDING,
+        verbose_name="Estado de Asignación"
+    )
     assigned_by = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 
@@ -168,7 +177,6 @@ class RolePermission(models.Model):
     role = models.ForeignKey(Role, on_delete=models.CASCADE, verbose_name="Rol")
     permission = models.ForeignKey(Permission, on_delete=models.CASCADE, verbose_name="Permiso")
     
-    # Campo requerido por el diagrama: granted_by
     granted_by = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 

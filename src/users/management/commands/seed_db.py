@@ -1,7 +1,8 @@
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
-from src.users.models import User, Role
+from common.validation import ValidationStatus
+from src.users.models import User, Role, UserRole
 from src.institutions.models import EnvironmentalInstitution, InstitutionColorSet
 from src.stations.models import MonitoringStation
 from src.measurements.models import VariableCatalog
@@ -13,7 +14,11 @@ class Command(BaseCommand):
     def handle(self, *args, **kwargs):
         try:
             with transaction.atomic():
+                # Roles base
                 self.create_roles()
+                
+                # Super Admin
+                self.create_super_admin()
                 
                 # Variables de Medición (Catálogo)
                 self.create_variables()
@@ -31,7 +36,14 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
     
     def create_roles(self):
-        roles = ['super_admin', 'station_admin', 'researcher', 'institution_worker', 'citizen']
+        roles = [
+            'super_admin',
+            'station_admin',
+            'researcher',
+            'institution_member',
+            'institution_head',
+            'citizen'
+        ]
         for role_name in roles:
             Role.objects.get_or_create(role_name=role_name)
         self.stdout.write(f'- Roles verificados/creados: {len(roles)}')
@@ -66,6 +78,7 @@ class Command(BaseCommand):
             user = User.objects.create_user(
                 email=email,
                 password=password,
+                phone = '3101234567',
                 first_name='Pepito',
                 last_name='Pérez',
                 job_title='Director Técnico',
@@ -75,14 +88,43 @@ class Command(BaseCommand):
             
             # Asignar rol de Admin de Estación
             role_admin = Role.objects.get(role_name='station_admin')
-            user.roles.add(role_admin)
+            UserRole.objects.create(
+                user=user,
+                role=role_admin,
+                approved_status=ValidationStatus.ACCEPTED,
+                assigned_by=user
+            )
             
-            self.stdout.write(f'- Usuario creado: {user.email} (Pass: {password})')
+            self.stdout.write(f'- Usuario por defecto creado: {user.email}')
             return user
         else:
             user = User.objects.get(email=email)
             self.stdout.write(f'- Usuario ya existía: {user.email}')
             return user
+    
+    def create_super_admin(self):
+        email = 'admin@vrisa.com'
+        password = 'admin1234'
+
+        if not User.objects.filter(email=email).exists():
+            admin_user = User.objects.create_superuser(
+                email=email,
+                password=password,
+                first_name='Admin',
+                last_name='Vrisa',
+                phone='0000000000'
+            ) # type: ignore
+            
+            role_super = Role.objects.get(role_name='super_admin')
+            UserRole.objects.create(
+                user=admin_user,
+                role=role_super,
+                approved_status=ValidationStatus.ACCEPTED
+            )
+            
+            self.stdout.write(self.style.SUCCESS(f'- Superusuario creado: {email}'))
+        else:
+            self.stdout.write(f'- Superusuario ya existía: {email}')
 
     def create_station(self, institution: EnvironmentalInstitution, manager: User):
         station_name = 'La Flora'
