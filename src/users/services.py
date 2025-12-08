@@ -55,7 +55,7 @@ def create_user(validated_data: dict) -> User:
         
         if requested_role_slug == 'citizen':
             # Los ciudadanos se aprueban automáticamente
-            role = Role.objects.get(role_name='citizen')
+            role = get_object_or_404(Role, role_name='citizen')
             UserRole.objects.create(
                 user=user, 
                 role=role, 
