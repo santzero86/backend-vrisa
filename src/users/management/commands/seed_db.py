@@ -31,7 +31,14 @@ class Command(BaseCommand):
             self.stdout.write(self.style.ERROR(f'Error: {str(e)}'))
     
     def create_roles(self):
-        roles = ['super_admin', 'station_admin', 'researcher', 'institution_worker', 'citizen']
+        roles = [
+            'super_admin',
+            'station_admin',
+            'researcher',
+            'institution_member',
+            'institution_head',
+            'citizen'
+        ]
         for role_name in roles:
             Role.objects.get_or_create(role_name=role_name)
         self.stdout.write(f'- Roles verificados/creados: {len(roles)}')
