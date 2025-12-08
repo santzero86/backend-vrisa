@@ -24,8 +24,26 @@ services:
       - POSTGRES_USER=vrisa_user
       - POSTGRES_PASSWORD=local_password_1234
       - POSTGRES_HOST=vrisa_db
+      - RUN_MIGRATIONS=true
     depends_on:
       - vrisa_db
+    restart: on-failure
+  
+  simulator:
+    image: vrisa-backend:1.0.0
+    container_name: vrisa_simulator
+    command: python manage.py start_simulation
+    volumes:
+      - .:/app
+    environment:
+      - POSTGRES_DB=vrisa_db
+      - POSTGRES_USER=vrisa_user
+      - POSTGRES_PASSWORD=local_password_1234
+      - POSTGRES_HOST=vrisa_db
+      - RUN_MIGRATIONS=false
+    depends_on:
+      - vrisa_db
+      - backend
 
 volumes:
   pgdata:
