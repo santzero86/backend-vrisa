@@ -9,6 +9,7 @@ class InstitutionSerializer(serializers.ModelSerializer):
     """
     Serializador para mostrar información básica de la institución dentro de las respuestas de usuario.
     """
+    institution_id = serializers.IntegerField(source='id', read_only=True)
     class Meta:
         model = EnvironmentalInstitution
         fields = ['institution_id', 'institute_name']
