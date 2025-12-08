@@ -1,6 +1,7 @@
+from common.validation import ValidationStatus
 from rest_framework import serializers
 from rest_framework_simplejwt.serializers import TokenObtainPairSerializer
-from src.users.models import User, Role
+from src.users.models import User, Role, UserRole
 from src.institutions.models import EnvironmentalInstitution
 
 
@@ -8,6 +9,7 @@ class InstitutionSerializer(serializers.ModelSerializer):
     """
     Serializador para mostrar información básica de la institución dentro de las respuestas de usuario.
     """
+    institution_id = serializers.IntegerField(source='id', read_only=True)
     class Meta:
         model = EnvironmentalInstitution
         fields = ['institution_id', 'institute_name']
@@ -31,10 +33,18 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'first_name', 'last_name', 
-            'job_title', 'institution', 'roles', 
-            'professional_card_front', 'professional_card_rear',
-            'is_active', 'created_at'
+            'id',
+            'email',
+            'first_name',
+            'last_name',
+            'phone',
+            'job_title',
+            'institution',
+            'roles', 
+            'professional_card_front',
+            'professional_card_rear',
+            'is_active',
+            'created_at'
         ]
 
 class RegisterUserSerializer(serializers.Serializer):
@@ -52,7 +62,9 @@ class RegisterUserSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=150)
     role_id = serializers.IntegerField(required=False, allow_null=True)
     institution_id = serializers.IntegerField(required=False, allow_null=True)
-
+    phone = serializers.CharField(max_length=20)
+    requested_role = serializers.CharField(required=False, default='citizen')
+    
     job_title = serializers.CharField(max_length=150, required=False)
     professional_card_front = serializers.ImageField(required=False)
     professional_card_rear = serializers.ImageField(required=False)
@@ -87,6 +99,7 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         # Agregar datos personalizados al token
         token['email'] = user.email
         token['full_name'] = f"{user.first_name} {user.last_name}"
+        token['first_name'] = user.first_name
         
         # Agregar Institución (si tiene)
         if user.institution:
@@ -96,7 +109,10 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
             token['institution_id'] = None
         
         # Agregar Roles
-        token['primary_role'] = cls.get_primary_role(user)
+        primary_role, role_status = cls.get_primary_role(user)
+        
+        token['primary_role'] = primary_role
+        token['role_status'] = role_status
         token['roles_list'] = list(user.roles.values_list('role_name', flat=True))
 
         return token
@@ -104,14 +120,26 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
 
     @staticmethod
     def get_primary_role(user):
-        """Método auxiliar para centralizar la lógica del rol"""
+        """
+        Determina el rol principal y su estado.
+        Retorna siempre una tupla: (nombre_rol, estado)
+        """
         if user.is_superuser:
-            return 'super_admin'
+            return 'super_admin', 'APPROVED'
         elif user.is_staff:
-            return 'staff'
+            return 'staff', 'APPROVED'
         
-        # Busca el primer rol en la base de datos, si existen roles registrados
-        if user.roles.exists():
-            return user.roles.first().role_name.lower()
+        user_roles = UserRole.objects.filter(user=user)
         
-        return 'citizen'
+        # Prioridad 1: Roles ya aprobados
+        approved_assignment = user_roles.filter(approved_status=ValidationStatus.ACCEPTED).first()
+        if approved_assignment:
+            return approved_assignment.role.role_name, 'APPROVED'
+        
+        # Prioridad 2: Roles pendientes
+        pending_assignment = user_roles.filter(approved_status=ValidationStatus.PENDING).first()
+        if pending_assignment:
+            return pending_assignment.role.role_name, 'PENDING'
+        
+        # Default: Ciudadano aprobado
+        return 'citizen', 'APPROVED'
