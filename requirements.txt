@@ -6,3 +6,4 @@ djangorestframework-simplejwt==5.3.1
 psycopg2-binary
 sqlparse==0.5.3
 Pillow 
+pandas
