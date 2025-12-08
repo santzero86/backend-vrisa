@@ -1,6 +1,6 @@
 from rest_framework import viewsets, permissions
 from .models import MonitoringStation
-from .serializer import MonitoringStationSerializer
+from .serializers import MonitoringStationSerializer
 
 class StationViewSet(viewsets.ModelViewSet):
     """
