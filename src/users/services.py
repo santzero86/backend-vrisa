@@ -1,6 +1,7 @@
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from src.users.models import User, Role
+from common.validation import ValidationStatus
+from src.users.models import User, Role, UserRole
 from src.institutions.models import EnvironmentalInstitution
 
 def create_user(validated_data: dict) -> User:
@@ -37,6 +38,8 @@ def create_user(validated_data: dict) -> User:
     
     card_front = validated_data.get('professional_card_front')
     card_rear = validated_data.get('professional_card_rear')
+    
+    requested_role_slug = validated_data.pop('requested_role', 'citizen')
 
     # transaccion para crear el usuario y asignar un rol por defecto hasta que un admin que lo verifique
     with transaction.atomic():
@@ -59,6 +62,26 @@ def create_user(validated_data: dict) -> User:
             professional_card_rear=card_rear,
             is_active=True  # Activo por defecto
         ) # type: ignore
+        
+        if requested_role_slug == 'citizen':
+            # Los ciudadanos se aprueban automáticamente
+            role = Role.objects.get(role_name='citizen')
+            UserRole.objects.create(
+                user=user, 
+                role=role, 
+                status=ValidationStatus.ACCEPTED # Aprobado automáticamente
+            )
+        else:
+            # Roles institucionales quedan PENDING
+            try:
+                role = Role.objects.get(role_name=requested_role_slug)
+                UserRole.objects.create(
+                    user=user, 
+                    role=role, 
+                    status=ValidationStatus.PENDING # Requiere aprobación
+                )
+            except Role.DoesNotExist:
+                pass 
 
     return user
 
