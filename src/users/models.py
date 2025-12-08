@@ -1,6 +1,7 @@
 from django.db import models
 from django.contrib.auth.models import AbstractUser, BaseUserManager
 from django.utils.translation import gettext_lazy as _
+from common.validation import ValidationStatus
 from src.institutions.models import EnvironmentalInstitution
 
 
@@ -92,12 +93,10 @@ class User(AbstractUser):
 
     Atributos principales:
         email: Identificador único del usuario.
+        phone: Número de contacto del usuario.
         job_title: Cargo laboral dentro de la institución, es opcional.
         institution: Relación con la entidad ambiental a la que pertenece, es opcional.
         professional_card_*: Archivos digitales de la tarjeta profesional, es opcional.
-        belongs_to_organization: Indica si el usuario pertenece a una organización ambiental.
-        requested_role: Rol solicitado durante el registro (station_admin, researcher, institution, citizen).
-        registration_complete: Indica si el usuario ha completado su registro adicional.
     """
     username = None
     email = models.EmailField(_('dirección de correo'), unique=True)
@@ -105,18 +104,6 @@ class User(AbstractUser):
     job_title = models.CharField(max_length=150, blank=True, null=True)
     professional_card_front = models.ImageField(upload_to='users/cards/', blank=True, null=True)
     professional_card_rear = models.ImageField(upload_to='users/cards/', blank=True, null=True)
-    
-    # Campos para el flujo de registro
-    belongs_to_organization = models.BooleanField(default=False, verbose_name="Pertenece a organización")
-    requested_role = models.CharField(
-        max_length=50, 
-        blank=True, 
-        null=True, 
-        verbose_name="Rol solicitado",
-        help_text="Rol que el usuario solicitó durante el registro"
-    )
-    registration_complete = models.BooleanField(default=False, verbose_name="Registro completo")
-    
     created_at = models.DateTimeField(auto_now_add=True)
     updated_at = models.DateTimeField(auto_now=True)
 
@@ -159,6 +146,12 @@ class UserRole(models.Model):
     user = models.ForeignKey(User, on_delete=models.CASCADE)
     role = models.ForeignKey(Role, on_delete=models.CASCADE)
     
+    approved_status = models.CharField(
+        max_length=20,
+        choices=ValidationStatus.choices,
+        default=ValidationStatus.PENDING,
+        verbose_name="Estado de Asignación"
+    )
     assigned_by = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 
