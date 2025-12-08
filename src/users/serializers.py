@@ -32,10 +32,18 @@ class UserSerializer(serializers.ModelSerializer):
     class Meta:
         model = User
         fields = [
-            'id', 'email', 'first_name', 'last_name', 
-            'job_title', 'institution', 'roles', 
-            'professional_card_front', 'professional_card_rear',
-            'is_active', 'created_at'
+            'id',
+            'email',
+            'first_name',
+            'last_name',
+            'phone',
+            'job_title',
+            'institution',
+            'roles', 
+            'professional_card_front',
+            'professional_card_rear',
+            'is_active',
+            'created_at'
         ]
 
 class RegisterUserSerializer(serializers.Serializer):
@@ -53,11 +61,7 @@ class RegisterUserSerializer(serializers.Serializer):
     last_name = serializers.CharField(max_length=150)
     role_id = serializers.IntegerField(required=False, allow_null=True)
     institution_id = serializers.IntegerField(required=False, allow_null=True)
-    
-    # Nuevos campos para el flujo de registro
-    belongs_to_organization = serializers.BooleanField(required=False, default=False)
-    requested_role = serializers.CharField(max_length=50, required=False, allow_null=True, allow_blank=True)
-    phone = serializers.CharField(max_length=20, required=False, allow_null=True, allow_blank=True)
+    phone = serializers.CharField(max_length=20)
 
     job_title = serializers.CharField(max_length=150, required=False)
     professional_card_front = serializers.ImageField(required=False)
