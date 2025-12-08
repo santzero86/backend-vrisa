@@ -37,19 +37,22 @@ docker compose up -d
 # Correr las migraciones dentro del contenedor 'backend'
 docker-compose exec backend python manage.py makemigrations
 docker-compose exec backend python manage.py migrate
-
-# Crear superusuario dentro del contenedor
-docker-compose exec backend python manage.py createsuperuser
 ```
 
+### Usuarios creados por defecto
+A nivel del archivo [seed_db](src/users/management/commands/seed_db.py) se tiene un script para poblar la base de datos en entorno de desarrollo.
+Por ello, es recomendable tener en cuenta que existirán dos usuarios listos para utilizarse en el frontend:
 
-(vrisa_env) pepito@~    python manage.py createsuperuser
-Dirección de correo: admin@vrisa.com
-First name: Admin
-Last name: Vrisa
-Password: 
-Password (again): 
-Superuser created successfully.
+**Superusuario**
+
+    correo: admin@vrisa.com
+    password: admin1234
+
+
+**Administrador de estación** 
+
+    correo: pepito.perez@gmail.com
+    password: pepito1234
 
 
 ### Comandos de Django para crear una nueva app o inicializar la aplicacion

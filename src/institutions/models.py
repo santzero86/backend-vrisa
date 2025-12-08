@@ -1,12 +1,8 @@
 from django.db import models
 from django.conf import settings
+from common.validation import ValidationStatus
 
 User = settings.AUTH_USER_MODEL
-
-class ValidationStatus(models.TextChoices):
-    PENDING = 'PENDING', 'Pendiente de Validación'
-    ACCEPTED = 'ACCEPTED', 'Aceptada'
-    REJECTED = 'REJECTED', 'Rechazada'
 
 class EnvironmentalInstitution(models.Model):
     """
