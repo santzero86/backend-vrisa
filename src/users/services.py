@@ -59,19 +59,17 @@ def create_user(validated_data: dict) -> User:
             UserRole.objects.create(
                 user=user, 
                 role=role, 
-                status=ValidationStatus.ACCEPTED # Aprobado automáticamente
+                approved_status=ValidationStatus.ACCEPTED # Aprobado automáticamente
             )
         else:
             # Roles institucionales quedan PENDING
-            try:
-                role = Role.objects.get(role_name=requested_role_slug)
-                UserRole.objects.create(
-                    user=user, 
-                    role=role, 
-                    status=ValidationStatus.PENDING # Requiere aprobación
-                )
-            except Role.DoesNotExist:
-                pass 
+            role = get_object_or_404(Role, role_name=requested_role_slug)
+            
+            UserRole.objects.create(
+                user=user, 
+                role=role, 
+                approved_status=ValidationStatus.PENDING
+            )
 
     return user
 

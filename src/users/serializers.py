@@ -62,7 +62,8 @@ class RegisterUserSerializer(serializers.Serializer):
     role_id = serializers.IntegerField(required=False, allow_null=True)
     institution_id = serializers.IntegerField(required=False, allow_null=True)
     phone = serializers.CharField(max_length=20)
-
+    requested_role = serializers.CharField(required=False, default='citizen')
+    
     job_title = serializers.CharField(max_length=150, required=False)
     professional_card_front = serializers.ImageField(required=False)
     professional_card_rear = serializers.ImageField(required=False)
@@ -130,12 +131,12 @@ class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
         user_roles = UserRole.objects.filter(user=user)
         
         # Prioridad 1: Roles ya aprobados
-        approved_assignment = user_roles.filter(status=ValidationStatus.ACCEPTED).first()
+        approved_assignment = user_roles.filter(approved_status=ValidationStatus.ACCEPTED).first()
         if approved_assignment:
             return approved_assignment.role.role_name, 'APPROVED'
         
         # Prioridad 2: Roles pendientes
-        pending_assignment = user_roles.filter(status=ValidationStatus.PENDING).first()
+        pending_assignment = user_roles.filter(approved_status=ValidationStatus.PENDING).first()
         if pending_assignment:
             return pending_assignment.role.role_name, 'PENDING'
         

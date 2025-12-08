@@ -177,7 +177,6 @@ class RolePermission(models.Model):
     role = models.ForeignKey(Role, on_delete=models.CASCADE, verbose_name="Rol")
     permission = models.ForeignKey(Permission, on_delete=models.CASCADE, verbose_name="Permiso")
     
-    # Campo requerido por el diagrama: granted_by
     granted_by = models.ForeignKey(
         User, 
         on_delete=models.SET_NULL, 
