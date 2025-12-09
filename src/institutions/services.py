@@ -3,7 +3,8 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
-from src.users.models import User
+from src.users.models import User, UserRole
+from common.validation import ValidationStatus
 
 class InstitutionService:    
     """
@@ -69,6 +70,7 @@ class InstitutionService:
     def approve_institution_service(institution_id: int):
         """
         Cambia el estado de validación de una institución a ACCEPTED.
+        También aprueba los roles de los usuarios representantes de la institución.
         """
         institution = get_object_or_404(EnvironmentalInstitution, pk=institution_id)
 
@@ -76,8 +78,19 @@ class InstitutionService:
             # Opcional: Lanzar error o simplemente retornar sin cambios
             return institution
 
-        institution.validation_status = 'ACCEPTED'
-        institution.save()
+        with transaction.atomic():
+            # 1. Aprobar la institución
+            institution.validation_status = 'ACCEPTED'
+            institution.save()
+
+            # 2. Aprobar los roles de los usuarios asociados a esta institución
+            # que tengan roles pendientes (representantes/miembros de la institución)
+            users_in_institution = User.objects.filter(institution=institution)
+            UserRole.objects.filter(
+                user__in=users_in_institution,
+                approved_status=ValidationStatus.PENDING
+            ).update(approved_status=ValidationStatus.ACCEPTED)
+
         return institution
 
 class IntegrationRequestService:
