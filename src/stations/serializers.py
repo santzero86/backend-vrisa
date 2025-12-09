@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from src.institutions.models import EnvironmentalInstitution
-from src.stations.models import MonitoringStation
+from src.stations.models import MonitoringStation, StationAffiliationRequest
 from src.users.serializers import UserSerializer
 
 
@@ -8,7 +8,7 @@ class MonitoringStationSerializer(serializers.ModelSerializer):
     """
     Serializador de SALIDA completo para la estación.
     """
-    
+
     # Incluimos detalles del manager para no mostrar solo el ID
     manager_user = UserSerializer(read_only=True)
     institution_name = serializers.CharField(
@@ -60,3 +60,44 @@ class CreateStationSerializer(serializers.Serializer):
         if not EnvironmentalInstitution.objects.filter(pk=value).exists():
             raise serializers.ValidationError("La institución no existe.")
         return value
+
+
+class StationAffiliationRequestSerializer(serializers.ModelSerializer):
+    """
+    Serializador para las solicitudes de afiliación.
+    """
+
+    station_name = serializers.CharField(source="station.station_name", read_only=True)
+    target_institution_name = serializers.CharField(
+        source="target_institution.institute_name", read_only=True
+    )
+    requester_name = serializers.CharField(
+        source="requester.get_full_name", read_only=True
+    )
+    reviewed_by_name = serializers.CharField(
+        source="reviewed_by.get_full_name", read_only=True
+    )
+
+    class Meta:
+        model = StationAffiliationRequest
+        fields = [
+            "request_id",
+            "station",
+            "station_name",
+            "target_institution",
+            "target_institution_name",
+            "requester",
+            "requester_name",
+            "status",
+            "review_comments",
+            "reviewed_by_name",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "status",
+            "requester",
+            "reviewed_by",
+            "created_at",
+            "updated_at",
+        ]
