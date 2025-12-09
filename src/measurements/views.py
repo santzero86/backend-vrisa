@@ -110,34 +110,34 @@ class AirQualityReportView(APIView):
         station_id = request.query_params.get('station_id')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
-        
-        # Compatibilidad hacia atrás: si envían 'date', lo usamos como rango de 1 día
         single_date = request.query_params.get('date')
-
-        if not station_id:
-            return Response({"error": "station_id es requerido"}, status=400)
-
+        
         # Lógica de fechas
         if not start_date and single_date:
             start_date = single_date
             end_date = single_date # El filtro range incluye el día completo si es date object
         elif not start_date or not end_date:
              return Response({"error": "Se requiere start_date y end_date (o date)"}, status=400)
-
+        
+        # Resolver Estación (Objeto o None para Global)
+        station = None
+        if station_id and station_id not in ["", "null", "undefined"]:
+            station = get_object_or_404(MonitoringStation, pk=station_id)
+        
         variable_code = request.query_params.get('variable_code')
-
-        station = get_object_or_404(MonitoringStation, pk=station_id)
         
         buffer = io.BytesIO()
         report = PDFReportGenerator(buffer)
-        
-        # Llamar al nuevo método que soporta rangos
         report.generate_air_quality_report(station, start_date, end_date, variable_code)
-        
         buffer.seek(0)
         
+        if station:
+            scope_str = station.station_name.replace(" ", "_").lower()
+        else:
+            scope_str = "cali_consolidated" 
+        
         today_str = timezone.now().strftime('%Y%m%d')
-        filename = f"{today_str}_vrisa_general_report.pdf"
+        filename = f"{today_str}_vrisa_general_{scope_str}_report.pdf"
         
         return FileResponse(buffer, as_attachment=True, filename=filename)
 
@@ -174,21 +174,26 @@ class AlertsReportView(APIView):
 
     def get(self, request):
         station_id = request.query_params.get('station_id')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
         
-        # Validar existencia aunque sea opcional para el reporte, para consistencia
-        if station_id:
-            get_object_or_404(MonitoringStation, pk=station_id)
-
+        #  Validar fechas
+        if not start_date or not end_date:
+            return Response({"error": "Se requieren start_date y end_date"}, status=400)
+        
+        station = None
+        if station_id and station_id not in ["", "null", "undefined"]:
+            station = get_object_or_404(MonitoringStation, pk=station_id)
+        
+        # Generar contenido del reporte
         buffer = io.BytesIO()
         report = PDFReportGenerator(buffer)
-        
-        # Generar contenido
-        report.generate_alerts_report(station_id)
-        
+        report.generate_alerts_report(station, start_date, end_date)
         buffer.seek(0)
         
         # Formato: YYYYMMDD_vrisa_alerts_report.pdf
         today_str = timezone.now().strftime('%Y%m%d')
-        filename = f"{today_str}_vrisa_alerts_report.pdf"
+        scope_str = station.station_name.replace(" ", "_").lower() if station else "cali_consolidated"
+        filename = f"{today_str}_vrisa_{scope_str}_alerts_report.pdf"
 
         return FileResponse(buffer, as_attachment=True, filename=filename)
