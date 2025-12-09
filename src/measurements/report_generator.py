@@ -6,7 +6,6 @@ from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
 from django.utils import timezone
 import matplotlib.pyplot as plt
 from src.measurements.models import Measurement, VariableCatalog
-
 import matplotlib
 matplotlib.use('Agg')
 
@@ -27,28 +26,36 @@ class PDFReportGenerator:
         self.elements.append(Paragraph(f"Generado el: {timezone.now().strftime('%Y-%m-%d %H:%M')}", self.styles['Normal']))
         self.elements.append(Spacer(1, 20))
 
-    def generate_air_quality_report(self, station, date):
-        """Genera reporte tabular de calidad del aire del día"""
-        self.add_header(f"Reporte de Calidad del Aire - {station.station_name}", f"Fecha consultada: {date}")
+    def generate_air_quality_report(self, station, date, variable_code=None):
+        """
+        Genera reporte tabular.
+        Args:
+            variable_code (str, optional): Código de la variable para filtrar (ej: 'PM2.5').
+        """
+        subtitle = f"Fecha consultada: {date}"
+        if variable_code:
+            subtitle += f" | Variable: {variable_code}"
+            
+        self.add_header(f"Reporte de Calidad del Aire - {station.station_name}", subtitle)
 
-        # Obtener datos
-        measurements = Measurement.objects.filter(
-            sensor__station=station,
-            measure_date__date=date
-        ).select_related('variable').order_by('measure_date')
+        # Filtro base
+        filters = {
+            'sensor__station': station,
+            'measure_date__date': date
+        }
+        # Filtro opcional por variable
+        if variable_code:
+            filters['variable__code'] = variable_code
+
+        measurements = Measurement.objects.filter(**filters).select_related('variable').order_by('measure_date')
 
         if not measurements.exists():
-            self.elements.append(Paragraph("No hay datos registrados para esta fecha.", self.styles['Normal']))
+            self.elements.append(Paragraph("No hay datos registrados para los criterios seleccionados.", self.styles['Normal']))
         else:
-            # Tabla de datos
             data = [['Hora', 'Variable', 'Valor', 'Unidad', 'Estado']]
             for m in measurements:
-                # Lógica simple de estado (puedes mejorarla con índices reales)
                 limit = m.variable.max_expected_value
                 status = "Normal" if m.value <= limit else "ALERTA"
-                
-                # Color de texto para alerta
-                status_style = colors.red if status == "ALERTA" else colors.green
                 
                 row = [
                     m.measure_date.strftime('%H:%M'),
@@ -59,10 +66,10 @@ class PDFReportGenerator:
                 ]
                 data.append(row)
 
-            # Estilo de tabla
-            table = Table(data)
+            # Estilo de tabla mejorado
+            table = Table(data, colWidths=[60, 100, 80, 60, 100])
             table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.grey),
+                ('BACKGROUND', (0, 0), (-1, 0), colors.Color(0.26, 0.22, 0.95)), # Brand Blue
                 ('TEXTCOLOR', (0, 0), (-1, 0), colors.whitesmoke),
                 ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
                 ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
@@ -73,14 +80,23 @@ class PDFReportGenerator:
 
         self.doc.build(self.elements)
 
-    def generate_trends_report(self, station, start_date, end_date):
-        """Genera reporte con gráfica de tendencias"""
-        self.add_header("Reporte de Tendencias", f"Estación: {station.station_name} | Desde: {start_date} Hasta: {end_date}")
+    def generate_trends_report(self, station, start_date, end_date, variable_code=None):
+        """
+        Genera gráficas de tendencia. Si hay variable_code, solo genera esa gráfica.
+        """
+        subtitle = f"Desde: {start_date} Hasta: {end_date}"
+        if variable_code:
+            subtitle += f" | Variable: {variable_code}"
 
-        variables = VariableCatalog.objects.all()
+        self.add_header("Reporte de Tendencias", f"Estación: {station.station_name} | {subtitle}")
+
+        # Determinar qué variables graficar
+        if variable_code:
+            variables = VariableCatalog.objects.filter(code=variable_code)
+        else:
+            variables = VariableCatalog.objects.all()
 
         for var in variables:
-            # Filtrar datos
             data = Measurement.objects.filter(
                 sensor__station=station,
                 variable=var,
@@ -91,28 +107,24 @@ class PDFReportGenerator:
                 dates = [m.measure_date for m in data]
                 values = [m.value for m in data]
 
-                # Crear gráfica en memoria
-                plt.figure(figsize=(8, 4))
-                plt.plot(dates, values, label=var.name, color='#4339F2')
+                plt.figure(figsize=(7, 3.5)) # Gráfica más compacta
+                plt.plot(dates, values, label=var.name, color='#4339F2', linewidth=2)
                 plt.title(f"Comportamiento de {var.name}")
-                plt.xlabel("Tiempo")
                 plt.ylabel(f"{var.unit}")
                 plt.grid(True, linestyle='--', alpha=0.6)
-                plt.xticks(rotation=45)
+                plt.xticks(rotation=20, fontsize=8)
                 plt.tight_layout()
 
-                # Guardar gráfica en buffer
                 img_buffer = io.BytesIO()
-                plt.savefig(img_buffer, format='png')
+                plt.savefig(img_buffer, format='png', dpi=100)
                 plt.close()
                 img_buffer.seek(0)
 
-                # Insertar en PDF
-                self.elements.append(Paragraph(f"Tendencia: {var.name}", self.styles['Heading2']))
+                self.elements.append(Paragraph(f"Variable: {var.name} ({var.code})", self.styles['Heading3']))
                 self.elements.append(ImageRL(img_buffer, width=450, height=225))
-                self.elements.append(Spacer(1, 20))
-            else:
-                self.elements.append(Paragraph(f"No hay datos para {var.name}", self.styles['Normal']))
+                self.elements.append(Spacer(1, 15))
+            elif variable_code:
+                 self.elements.append(Paragraph(f"No hay datos para {var.name} en este rango.", self.styles['Normal']))
 
         self.doc.build(self.elements)
 

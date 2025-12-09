@@ -117,7 +117,11 @@ class AirQualityReportView(APIView):
         report.generate_air_quality_report(station, date)
         
         buffer.seek(0)
-        return FileResponse(buffer, as_attachment=True, filename=f'calidad_aire_{date}.pdf')
+
+        clean_name = station.station_name.replace(" ", "_")
+        filename = f"{date}-{clean_name}-vrisa.pdf"
+        
+        return FileResponse(buffer, as_attachment=True, filename=filename)
 
 class TrendsReportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
@@ -137,17 +141,87 @@ class TrendsReportView(APIView):
         report.generate_trends_report(station, start_date, end_date)
         
         buffer.seek(0)
-        return FileResponse(buffer, as_attachment=True, filename='tendencias.pdf')
 
-class AlertsReportView(APIView):
+        clean_name = station.station_name.replace(" ", "_")
+        filename = f"{start_date}_to_{end_date}-{clean_name}-vrisa-trends.pdf"
+
+        return FileResponse(buffer, as_attachment=True, filename=filename)
+
+class AirQualityReportView(APIView):
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        station_id = request.query_params.get('station_id') # Opcional
+        station_id = request.query_params.get('station_id')
+        date = request.query_params.get('date')
+        variable_code = request.query_params.get('variable_code') # NUEVO PARÁMETRO
+
+        if not station_id or not date:
+            return Response({"error": "station_id y date requeridos"}, status=400)
+
+        station = get_object_or_404(MonitoringStation, pk=station_id)
+        
+        buffer = io.BytesIO()
+        report = PDFReportGenerator(buffer)
+        
+        report.generate_air_quality_report(station, date, variable_code)
+        
+        buffer.seek(0)
+        
+        # Nombre dinámico: Si hay variable, la incluimos en el nombre
+        var_part = f"-{variable_code}" if variable_code else ""
+        clean_name = station.station_name.replace(" ", "_")
+        filename = f"{date}-{clean_name}{var_part}-vrisa.pdf"
+        
+        return FileResponse(buffer, as_attachment=True, filename=filename)
+
+class TrendsReportView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        station_id = request.query_params.get('station_id')
+        start_date = request.query_params.get('start_date')
+        end_date = request.query_params.get('end_date')
+        variable_code = request.query_params.get('variable_code') # NUEVO PARÁMETRO
+
+        if not station_id or not start_date or not end_date:
+            return Response({"error": "Faltan parámetros"}, status=400)
+
+        station = get_object_or_404(MonitoringStation, pk=station_id)
+
+        buffer = io.BytesIO()
+        report = PDFReportGenerator(buffer)
+        report.generate_trends_report(station, start_date, end_date, variable_code)
+        
+        buffer.seek(0)
+
+        var_part = f"-{variable_code}" if variable_code else ""
+        clean_name = station.station_name.replace(" ", "_")
+        filename = f"{start_date}_{end_date}-{clean_name}{var_part}-trends.pdf"
+
+        return FileResponse(buffer, as_attachment=True, filename=filename)
+
+class AlertsReportView(APIView):
+    """
+    Vista para generar el reporte de Alertas Críticas.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        station_id = request.query_params.get('station_id')
+        
+        station_name = "Global"
+        if station_id:
+            station = get_object_or_404(MonitoringStation, pk=station_id)
+            station_name = station.station_name.replace(" ", "_")
 
         buffer = io.BytesIO()
         report = PDFReportGenerator(buffer)
         report.generate_alerts_report(station_id)
         
         buffer.seek(0)
-        return FileResponse(buffer, as_attachment=True, filename='alertas_criticas.pdf')    
+        
+        import datetime
+        today = datetime.date.today()
+        filename = f"{today}-{station_name}-vrisa-alerts.pdf"
+
+        return FileResponse(buffer, as_attachment=True, filename=filename)
