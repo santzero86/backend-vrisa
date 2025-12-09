@@ -66,8 +66,6 @@ class PDFReportGenerator:
     
     Utiliza ReportLab para la maquetación del documento y Pandas/Matplotlib
     para el procesamiento de datos y generación de gráficas.
-    Los reportes se generan en orientación horizontal (landscape) para
-    acomodar tablas estadísticas detalladas.
     """
 
     def __init__(self, buffer):
@@ -120,14 +118,13 @@ class PDFReportGenerator:
             end_date (str/date): Fecha de fin del rango de análisis.
             variable_code (str, optional): Código de variable para filtrar (ej: 'PM2.5'). Si es None, trae todas.
         """
-        # 1. Títulos
         subtitle = f"Periodo analizado: {start_date} al {end_date}"
         if variable_code:
             subtitle += f" | Variable filtrada: {variable_code}"
             
         self.add_header(f"Reporte Ejecutivo de Calidad del Aire - {station.station_name}", subtitle)
 
-        # 2. Obtener Datos
+        # Obtener Datos
         filters = {
             'sensor__station': station,
             'measure_date__date__range': [start_date, end_date]
@@ -151,13 +148,11 @@ class PDFReportGenerator:
             self.doc.build(self.elements)
             return
 
-        # 3. Procesamiento con Pandas
+        # Procesamiento con Pandas
         df = pd.DataFrame(list(queryset))
-        
-        # Agrupar por variable
         grouped = df.groupby('variable__code')
 
-        # --- SECCIÓN 1: TABLA RESUMEN ESTADÍSTICO ---
+        # --- Tabla resumen con estadísticos centrales ---
         self.elements.append(Paragraph("Resumen Estadístico por Variable", self.styles['Heading2']))
         self.elements.append(Spacer(1, 10))
 
@@ -239,7 +234,7 @@ class PDFReportGenerator:
         self.elements.append(table)
         self.elements.append(Spacer(1, 30))
 
-        # --- SECCIÓN 2: DETALLE DE ALERTAS ---
+        # --- Detalle de alertas ---
         if alerts_detected:
             self.elements.append(Paragraph("Detalle de Eventos Críticos (Alertas)", self.styles['Heading2']))
             self.elements.append(Paragraph("A continuación se listan los momentos específicos donde se superaron los límites permitidos:", self.styles['Normal']))
@@ -262,7 +257,7 @@ class PDFReportGenerator:
             ]))
             self.elements.append(alert_table)
         else:
-            self.elements.append(Paragraph("✅ No se detectaron anomalías ni excesos en los límites durante este periodo.", self.styles['Normal']))
+            self.elements.append(Paragraph("No se detectaron anomalías ni excesos en los límites durante este periodo.", self.styles['Normal']))
 
         self.doc.build(self.elements)
     
