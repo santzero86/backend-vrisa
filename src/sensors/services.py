@@ -2,16 +2,18 @@ from django.db import transaction
 from django.core.exceptions import ValidationError
 from .models import Sensor
 
+
 class SensorService:
     """
     Capa de servicio para encapsular la lógica de negocio de los Sensores.
     """
+
     @staticmethod
     def create_sensor(data: dict) -> Sensor:
         """
         Crea un nuevo sensor en la base de datos de forma transaccional.
         Args:
-            data (dict): Datos validados del sensor. 
+            data (dict): Datos validados del sensor.
         Returns:
             Sensor: Instancia del sensor creado.
         """
