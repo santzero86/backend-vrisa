@@ -1,20 +1,17 @@
+import io
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.http import FileResponse
+from django.shortcuts import get_object_or_404
+from django.utils import timezone
 from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
+from rest_framework.views import APIView
+from src.stations.models import MonitoringStation
 from .models import Measurement, VariableCatalog
 from .serializers import MeasurementSerializer, VariableCatalogSerializer
-from .services import MeasurementService
-from rest_framework.decorators import action
-from django.utils.dateparse import parse_datetime
-from src.sensors.models import Sensor
-from django.http import FileResponse
-from rest_framework.views import APIView
-from rest_framework import permissions
-from django.shortcuts import get_object_or_404
-from src.stations.models import MonitoringStation
-from .report_generator import PDFReportGenerator
-import io
+from .services import MeasurementService, PDFReportGenerator
+
 
 class VariableCatalogViewSet(viewsets.ModelViewSet):
     """
@@ -25,9 +22,11 @@ class VariableCatalogViewSet(viewsets.ModelViewSet):
         - Requiere autenticación.
         - (TODO: Idealmente solo Administradores deberían poder crear/editar/borrar).
     """
+
     queryset = VariableCatalog.objects.all()
     serializer_class = VariableCatalogSerializer
     permission_classes = [permissions.IsAuthenticated]
+
 
 class MeasurementViewSet(viewsets.ModelViewSet):
     """
@@ -100,36 +99,56 @@ class MeasurementViewSet(viewsets.ModelViewSet):
 
         return Response(list(data), status=status.HTTP_200_OK)
 
+
 class AirQualityReportView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        station_id = request.query_params.get('station_id')
-        date = request.query_params.get('date') # Formato YYYY-MM-DD
-
-        if not station_id or not date:
-            return Response({"error": "station_id y date son requeridos"}, status=400)
-
-        station = get_object_or_404(MonitoringStation, pk=station_id)
-        
-        buffer = io.BytesIO()
-        report = PDFReportGenerator(buffer)
-        report.generate_air_quality_report(station, date)
-        
-        buffer.seek(0)
-
-        clean_name = station.station_name.replace(" ", "_")
-        filename = f"{date}-{clean_name}-vrisa.pdf"
-        
-        return FileResponse(buffer, as_attachment=True, filename=filename)
-
-class TrendsReportView(APIView):
+    """
+    Genera el reporte ejecutivo estadístico.
+    """
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
         station_id = request.query_params.get('station_id')
         start_date = request.query_params.get('start_date')
         end_date = request.query_params.get('end_date')
+        
+        # Compatibilidad hacia atrás: si envían 'date', lo usamos como rango de 1 día
+        single_date = request.query_params.get('date')
+
+        if not station_id:
+            return Response({"error": "station_id es requerido"}, status=400)
+
+        # Lógica de fechas
+        if not start_date and single_date:
+            start_date = single_date
+            end_date = single_date # El filtro range incluye el día completo si es date object
+        elif not start_date or not end_date:
+             return Response({"error": "Se requiere start_date y end_date (o date)"}, status=400)
+
+        variable_code = request.query_params.get('variable_code')
+
+        station = get_object_or_404(MonitoringStation, pk=station_id)
+        
+        buffer = io.BytesIO()
+        report = PDFReportGenerator(buffer)
+        
+        # Llamar al nuevo método que soporta rangos
+        report.generate_air_quality_report(station, start_date, end_date, variable_code)
+        
+        buffer.seek(0)
+        
+        today_str = timezone.now().strftime('%Y%m%d')
+        filename = f"{today_str}_vrisa_general_report.pdf"
+        
+        return FileResponse(buffer, as_attachment=True, filename=filename)
+
+
+class TrendsReportView(APIView):
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        station_id = request.query_params.get("station_id")
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
 
         if not station_id or not start_date or not end_date:
             return Response({"error": "Faltan parámetros"}, status=400)
@@ -139,64 +158,11 @@ class TrendsReportView(APIView):
         buffer = io.BytesIO()
         report = PDFReportGenerator(buffer)
         report.generate_trends_report(station, start_date, end_date)
-        
+
         buffer.seek(0)
 
         clean_name = station.station_name.replace(" ", "_")
         filename = f"{start_date}_to_{end_date}-{clean_name}-vrisa-trends.pdf"
-
-        return FileResponse(buffer, as_attachment=True, filename=filename)
-
-class AirQualityReportView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        station_id = request.query_params.get('station_id')
-        date = request.query_params.get('date')
-        variable_code = request.query_params.get('variable_code') # NUEVO PARÁMETRO
-
-        if not station_id or not date:
-            return Response({"error": "station_id y date requeridos"}, status=400)
-
-        station = get_object_or_404(MonitoringStation, pk=station_id)
-        
-        buffer = io.BytesIO()
-        report = PDFReportGenerator(buffer)
-        
-        report.generate_air_quality_report(station, date, variable_code)
-        
-        buffer.seek(0)
-        
-        # Nombre dinámico: Si hay variable, la incluimos en el nombre
-        var_part = f"-{variable_code}" if variable_code else ""
-        clean_name = station.station_name.replace(" ", "_")
-        filename = f"{date}-{clean_name}{var_part}-vrisa.pdf"
-        
-        return FileResponse(buffer, as_attachment=True, filename=filename)
-
-class TrendsReportView(APIView):
-    permission_classes = [permissions.IsAuthenticated]
-
-    def get(self, request):
-        station_id = request.query_params.get('station_id')
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-        variable_code = request.query_params.get('variable_code') # NUEVO PARÁMETRO
-
-        if not station_id or not start_date or not end_date:
-            return Response({"error": "Faltan parámetros"}, status=400)
-
-        station = get_object_or_404(MonitoringStation, pk=station_id)
-
-        buffer = io.BytesIO()
-        report = PDFReportGenerator(buffer)
-        report.generate_trends_report(station, start_date, end_date, variable_code)
-        
-        buffer.seek(0)
-
-        var_part = f"-{variable_code}" if variable_code else ""
-        clean_name = station.station_name.replace(" ", "_")
-        filename = f"{start_date}_{end_date}-{clean_name}{var_part}-trends.pdf"
 
         return FileResponse(buffer, as_attachment=True, filename=filename)
 
@@ -209,19 +175,20 @@ class AlertsReportView(APIView):
     def get(self, request):
         station_id = request.query_params.get('station_id')
         
-        station_name = "Global"
+        # Validar existencia aunque sea opcional para el reporte, para consistencia
         if station_id:
-            station = get_object_or_404(MonitoringStation, pk=station_id)
-            station_name = station.station_name.replace(" ", "_")
+            get_object_or_404(MonitoringStation, pk=station_id)
 
         buffer = io.BytesIO()
         report = PDFReportGenerator(buffer)
+        
+        # Generar contenido
         report.generate_alerts_report(station_id)
         
         buffer.seek(0)
         
-        import datetime
-        today = datetime.date.today()
-        filename = f"{today}-{station_name}-vrisa-alerts.pdf"
+        # Formato: YYYYMMDD_vrisa_alerts_report.pdf
+        today_str = timezone.now().strftime('%Y%m%d')
+        filename = f"{today_str}_vrisa_alerts_report.pdf"
 
         return FileResponse(buffer, as_attachment=True, filename=filename)
