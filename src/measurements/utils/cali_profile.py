@@ -5,9 +5,22 @@ from django.conf import settings
 CSV_PATH = os.path.join(settings.BASE_DIR, 'data/LA_daily_air_quality.csv')
 
 def calcular_perfil_con_pandas():
-    # Diccionario por defecto por si falla la lectura (para que no se caiga el sistema)
-    perfil_por_defecto = {0: {'PM2.5': 14.2, 'TEMP': 21.5, 'HUM': 82.1}} 
-
+    """
+    Lee el archivo CSV histórico y calcula el promedio de cada contaminante
+    agrupado por hora del día (0-23).
+    
+    Returns:
+        dict: Un diccionario donde la clave es la hora (str '0'-'23') y el valor
+              es otro diccionario con los promedios de cada variable.
+    """
+    # Perfil de seguridad por si falla la lectura del CSV
+    perfil_por_defecto = {
+        str(h): {
+            'PM2.5': 15.0, 'PM10': 30.0, 'CO': 200.0, 
+            'NO2': 15.0, 'SO2': 5.0, 'O3': 20.0, 
+            'TEMP': 25.0, 'HUM': 70.0
+        } for h in range(24)
+    }
     if not os.path.exists(CSV_PATH):
         print(f"No se encontró el archivo {CSV_PATH}. Usando perfil por defecto.")
         return perfil_por_defecto
@@ -20,6 +33,8 @@ def calcular_perfil_con_pandas():
         
         # Agrupar por hora (0 a 23) y sacamos el promedio
         df['hour'] = df['date'].dt.hour
+
+        # Calcular el promedio por hora ignorando nulos (NaN)
         promedios = df.groupby('hour').mean(numeric_only=True)
 
         # Construir el diccionario final (HOURLY_PROFILE)

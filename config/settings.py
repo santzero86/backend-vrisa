@@ -54,6 +54,8 @@ CORS_ALLOWED_ORIGINS = [
     "http://127.0.0.1:8088",
 ]
 
+CORS_EXPOSE_HEADERS = ['Content-Disposition']
+
 ROOT_URLCONF = 'config.urls'
 
 TEMPLATES = [
