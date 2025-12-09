@@ -1,10 +1,9 @@
 from django.urls import path, include
 from rest_framework.routers import DefaultRouter
-from .views import ApproveInstitutionView, InstitutionViewSet, IntegrationRequestViewSet, RegisterInstitutionView
+from .views import ApproveInstitutionView, InstitutionViewSet, RegisterInstitutionView
 
 router = DefaultRouter()
 router.register(r'institutes', InstitutionViewSet, basename='institute')
-router.register(r'requests', IntegrationRequestViewSet, basename='integration-request')
 
 urlpatterns = [
     path('register/', RegisterInstitutionView.as_view(), name='register-institution'),
