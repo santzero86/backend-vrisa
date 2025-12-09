@@ -1,9 +1,10 @@
-from .models import EnvironmentalInstitution, InstitutionColorSet, IntegrationRequest
-from django.db import transaction
 from django.core.exceptions import ValidationError
+from django.db import transaction
 from django.shortcuts import get_object_or_404
-from django.utils import timezone
-from src.users.models import User
+from common.validation import ValidationStatus
+from src.users.models import User, UserRole
+from .models import EnvironmentalInstitution, InstitutionColorSet
+
 
 class InstitutionService:    
     """
@@ -69,6 +70,7 @@ class InstitutionService:
     def approve_institution_service(institution_id: int):
         """
         Cambia el estado de validación de una institución a ACCEPTED.
+        También aprueba los roles de los usuarios representantes de la institución.
         """
         institution = get_object_or_404(EnvironmentalInstitution, pk=institution_id)
 
@@ -76,51 +78,17 @@ class InstitutionService:
             # Opcional: Lanzar error o simplemente retornar sin cambios
             return institution
 
-        institution.validation_status = 'ACCEPTED'
-        institution.save()
-        return institution
-
-class IntegrationRequestService:
-    """
-    Capa de servicio para gestionar el flujo de aprobación de solicitudes.
-    """
-    @staticmethod
-    def create_request(data: dict) -> IntegrationRequest:
-        """
-        Registra una nueva solicitud de integración validando duplicados.
-
-        Evita que una misma institución tenga múltiples solicitudes pendientes
-        simultáneamente (prevención de spam).
-        """
-        existing_pending = IntegrationRequest.objects.filter(
-            institution=data['institution'], 
-            request_status=IntegrationRequest.RequestStatus.PENDING
-        ).exists()
-        
-        if existing_pending:
-            raise ValidationError("Esta institución ya tiene una solicitud pendiente.")
-
-        return IntegrationRequest.objects.create(**data)
-
-    @staticmethod
-    def approve_request(request_id: int, user) -> IntegrationRequest:
-        """
-        Aprueba una solicitud existente, registrando auditoría del revisor.
-        Args:
-            request_id (int): ID de la solicitud.
-            user (User): Usuario administrador que realiza la aprobación.
-        Returns:
-            IntegrationRequest: La solicitud actualizada con estado APPROVED.
-        """
-        try:
-            integration_request = IntegrationRequest.objects.get(pk=request_id)
-        except IntegrationRequest.DoesNotExist:
-            raise ValidationError(f"Solicitud {request_id} no encontrada.")
-
         with transaction.atomic():
-            integration_request.request_status = IntegrationRequest.RequestStatus.APPROVED
-            integration_request.reviewed_by = user
-            integration_request.review_date = timezone.now()
-            integration_request.save()
-            
-        return integration_request
+            # 1. Aprobar la institución
+            institution.validation_status = 'ACCEPTED'
+            institution.save()
+
+            # 2. Aprobar los roles de los usuarios asociados a esta institución
+            # que tengan roles pendientes (representantes/miembros de la institución)
+            users_in_institution = User.objects.filter(institution=institution)
+            UserRole.objects.filter(
+                user__in=users_in_institution,
+                approved_status=ValidationStatus.PENDING
+            ).update(approved_status=ValidationStatus.ACCEPTED)
+
+        return institution

@@ -1,5 +1,5 @@
 from rest_framework import serializers
-from .models import EnvironmentalInstitution, InstitutionColorSet, IntegrationRequest
+from .models import EnvironmentalInstitution, InstitutionColorSet
 import json
 
 class InstitutionColorSetSerializer(serializers.ModelSerializer):
@@ -42,18 +42,6 @@ class EnvironmentalInstitutionSerializer(serializers.ModelSerializer):
             'validation_status'
         ]
         read_only_fields = ['created_at', 'validation_status']
-
-class IntegrationRequestSerializer(serializers.ModelSerializer):
-    """
-    Serializador para las solicitudes de integración.
-    Incluye el nombre de la institución de forma plana para facilitar su lectura en frontend.
-    """
-    institution_name = serializers.CharField(source='institution.institute_name', read_only=True)
-
-    class Meta:
-        model = IntegrationRequest
-        fields = '__all__'
-        read_only_fields = ['request_date', 'reviewed_by', 'review_date']
 
 class InstitutionRegistrationSerializer(serializers.ModelSerializer):
     """

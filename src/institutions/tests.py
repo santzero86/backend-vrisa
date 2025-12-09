@@ -1,7 +1,7 @@
 from django.test import TestCase
 from django.core.exceptions import ValidationError
-from src.institutions.services import InstitutionService, IntegrationRequestService
-from src.institutions.models import EnvironmentalInstitution, InstitutionColorSet, IntegrationRequest
+from src.institutions.services import InstitutionService
+from src.institutions.models import EnvironmentalInstitution
 
 class InstitutionServiceTestCase(TestCase):
     def test_create_institution_with_colors(self):
@@ -31,18 +31,3 @@ class InstitutionServiceTestCase(TestCase):
             
         # Verificar atomicidad: No se debió crear la institución
         self.assertFalse(EnvironmentalInstitution.objects.filter(institute_name='Rainbow').exists())
-
-class RequestServiceTestCase(TestCase):
-    def setUp(self):
-        self.inst = EnvironmentalInstitution.objects.create(institute_name="Test Inst", physic_address="x")
-
-    def test_prevent_duplicate_pending_requests(self):
-        """
-        Evitar spam de solicitudes
-        """
-        # Crear primera solicitud
-        IntegrationRequestService.create_request({'institution': self.inst})
-        
-        # Intentar crear segunda solicitud pendiente
-        with self.assertRaises(ValidationError):
-            IntegrationRequestService.create_request({'institution': self.inst})
