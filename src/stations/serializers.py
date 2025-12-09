@@ -37,6 +37,7 @@ class CreateStationSerializer(serializers.Serializer):
     """
 
     station_name = serializers.CharField(max_length=150)
+    address_reference = serializers.CharField(max_length=255, required=False, allow_blank=True) 
     geographic_location_lat = serializers.FloatField()
     geographic_location_long = serializers.FloatField()
     institution_id = serializers.IntegerField()
@@ -68,6 +69,15 @@ class StationAffiliationRequestSerializer(serializers.ModelSerializer):
     """
 
     station_name = serializers.CharField(source="station.station_name", read_only=True)
+    station_lat = serializers.FloatField(
+        source="station.geographic_location_lat", read_only=True
+    )
+    station_long = serializers.FloatField(
+        source="station.geographic_location_long", read_only=True
+    )
+    station_address = serializers.CharField(
+        source="station.address_reference", read_only=True
+    )
     target_institution_name = serializers.CharField(
         source="target_institution.institute_name", read_only=True
     )
@@ -84,6 +94,9 @@ class StationAffiliationRequestSerializer(serializers.ModelSerializer):
             "request_id",
             "station",
             "station_name",
+            "station_lat",
+            "station_long",
+            "station_address",
             "target_institution",
             "target_institution_name",
             "requester",

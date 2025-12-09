@@ -28,6 +28,7 @@ def create_station(validated_data: dict, user_id: int) -> MonitoringStation:
     name = validated_data.get("station_name")
     lat = validated_data.get("geographic_location_lat")
     lon = validated_data.get("geographic_location_long")
+    address = validated_data.get('address_reference', '') 
     institution_id = validated_data.get("institution_id")
 
     # Verificar Institución
@@ -44,6 +45,7 @@ def create_station(validated_data: dict, user_id: int) -> MonitoringStation:
             station_name=name,
             geographic_location_lat=lat,
             geographic_location_long=lon,
+            address_reference=address,
             institution=institution,
             manager_user=manager,
             operative_status=MonitoringStation.OperativeStatus.INACTIVE,  # Nace inactiva por defecto

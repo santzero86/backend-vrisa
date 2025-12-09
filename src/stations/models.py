@@ -44,6 +44,13 @@ class MonitoringStation(models.Model):
         verbose_name="Token de Autenticación",
     )
 
+    # Dirección física o referencia (opcional)
+    address_reference = models.CharField(
+        max_length=255, 
+        null=True, 
+        blank=True, 
+        verbose_name="Dirección o Referencia Física"
+    )
     # Coordenadas geográficas (según diagrama: FLOAT)
     geographic_location_lat = models.FloatField(verbose_name="Latitud")
     geographic_location_long = models.FloatField(verbose_name="Longitud")
