@@ -63,6 +63,9 @@ class Command(BaseCommand):
                     # Lógica de Contexto: ¿Qué mide este sensor?
                     capabilities = self.SENSOR_CAPABILITIES.get(sensor.model, [])
                     
+                    # Lista para acumular los strings de log de este sensor en particular
+                    log_readings = []
+                    
                     for code in capabilities:
                         if code not in variables_cache: continue
                         
@@ -76,7 +79,20 @@ class Command(BaseCommand):
 
                         # Guardar
                         self.save_measurement(sensor, var_obj, sim_val, now)
-                    
+                        
+                        log_readings.append(f"{code}={sim_val:.2f}")
+                
+                    if log_readings:
+                        timestamp = now.strftime('%H:%M:%S')
+                        readings_str = " | ".join(log_readings)
+                        # Salida: [HH:MM:SS] SERIAL (MODELO): VAR1=VAL | VAR2=VAL
+                        self.stdout.write(
+                            f"[{timestamp}] {sensor.serial_number} ({sensor.model}): {readings_str}"
+                        )
+                
+                if sensors.exists():
+                    self.stdout.write("-" * 60)
+                
                 time.sleep(10) # Intervalo de envío
 
             except KeyboardInterrupt:
