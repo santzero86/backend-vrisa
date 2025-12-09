@@ -1,11 +1,10 @@
-from django.shortcuts import render
-
-from rest_framework import viewsets, permissions, status
-from rest_framework.response import Response
 from django.core.exceptions import ValidationError as DjangoValidationError
-from .models import Sensor
-from .serializers import SensorSerializer
+from rest_framework import permissions, status, viewsets
+from rest_framework.response import Response
+from .models import MaintenanceLog, Sensor
+from .serializers import MaintenanceLogSerializer, SensorSerializer
 from .services import SensorService
+
 
 class SensorViewSet(viewsets.ModelViewSet):
     """
@@ -33,3 +32,20 @@ class SensorViewSet(viewsets.ModelViewSet):
             return Response({"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+class MaintenanceLogViewSet(viewsets.ModelViewSet):
+    """
+    Endpoint: /api/sensors/maintenance/
+    Gestión de la bitácora de mantenimiento.
+    """
+
+    queryset = MaintenanceLog.objects.all()
+    serializer_class = MaintenanceLogSerializer
+    permission_classes = [permissions.IsAuthenticated]
+
+    def perform_create(self, serializer):
+        """
+        Asigna automáticamente el usuario que crea el registro como técnico,
+        a menos que se especifique otro.
+        """
+        serializer.save(technical_user=self.request.user)
