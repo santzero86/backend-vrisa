@@ -9,78 +9,75 @@ from src.measurements.services import MeasurementService
 from src.measurements.utils.cali_profile import HOURLY_PROFILE
 
 class Command(BaseCommand):
-    help = 'Simula datos basados en perfiles horarios reales de Cali'
+    """
+    Simulador de IoT en Tiempo Real.
+    
+    Funcionalidad:
+    1. Se ejecuta infinitamente (como un servicio o worker).
+    2. Lee el perfil de contaminantes de Cali según la hora actual.
+    3. Detecta dinámicamente TODOS los sensores activos en la base de datos.
+    4. Genera mediciones para TODAS las variables (PM2.5, PM10, CO, etc.).
+    5. Utiliza el 'MeasurementService' para validar reglas de negocio al guardar.
+    """
+    help = 'Simula datos multiparamétricos en tiempo real para todos los sensores activos'
+
+    SENSOR_CAPABILITIES = {
+        "VriSA-Meteo":      ["TEMP", "HUM"],          # Sensor 1
+        "VriSA-Urban-Eco":  ["CO", "PM2.5"],          # Sensor 2
+        "VriSA-Heavy-Ind":  ["PM10", "NO2", "SO2"],   # Sensor 3
+        "VriSA-O3-Only":    ["O3"]                    # Sensor 4
+    }
 
     def handle(self, *args, **kwargs):
-        self.stdout.write(self.style.WARNING('Esperando a que las migraciones terminen...'))
-        db_ready = False
-        while not db_ready:
-            try:
-                # Intentamos hacer una consulta ligera para ver si la tabla existe
-                Sensor.objects.exists()
-                db_ready = True
-            except (OperationalError, ProgrammingError):
-                # Si falla porque la tabla no existe o la DB se está reiniciando
-                self.stdout.write('La base de datos aún no tiene las tablas. Reintentando en 2s...')
-                time.sleep(2)
+        self.stdout.write(self.style.WARNING('--- Simulador de 4 Sensores Iniciado ---'))
         
-        self.stdout.write(self.style.SUCCESS('Base de datos lista'))
-        self.stdout.write(self.style.SUCCESS('Iniciando simulación realista (Perfil Cali)...'))
+        # 1. Espera DB
+        while True:
+            try:
+                if Sensor.objects.exists(): break
+            except OperationalError:
+                time.sleep(1)
+        
+        # 2. Cargar Variables
+        variables_cache = {}
+        all_needed_codes = set([code for sublist in self.SENSOR_CAPABILITIES.values() for code in sublist])
+        
+        for code in all_needed_codes:
+            try:
+                variables_cache[code] = VariableCatalog.objects.get(code=code)
+            except VariableCatalog.DoesNotExist:
+                self.stdout.write(self.style.ERROR(f'Falta variable: {code}'))
 
+        self.stdout.write(self.style.SUCCESS('Configuración cargada. Enviando datos...'))
+
+        # 3. Bucle Principal
         while True:
             try:
                 now = timezone.now()
-                current_hour = str(now.hour) 
-                base_data = HOURLY_PROFILE.get(current_hour, HOURLY_PROFILE.get("0"))
-                
-                if not base_data:
-                     self.stdout.write(self.style.ERROR('Error leyendo el perfil horario. Revisa cali_profile.py'))
-                     time.sleep(5)
-                     continue
-                 
-                # Recuperar variables del catálogo
-                try:
-                    var_pm25 = VariableCatalog.objects.get(code="PM2.5")
-                    var_temp = VariableCatalog.objects.get(code="TEMP")
-                    var_hum = VariableCatalog.objects.get(code="HUM")
-                except VariableCatalog.DoesNotExist:
-                    self.stdout.write(self.style.ERROR('Faltan variables. Ejecuta seed_db.'))
-                    break
+                hour_str = str(now.hour)
+                base_data = HOURLY_PROFILE.get(hour_str, HOURLY_PROFILE.get("0"))
                 
                 sensors = Sensor.objects.filter(status=Sensor.Status.ACTIVE)
-                if not sensors.exists():
-                    self.stdout.write(self.style.WARNING('Esperando sensores activos...'))
-                    time.sleep(5)
-                    continue
-
+                
                 for sensor in sensors:
-                    # 2. Algoritmo de Variación Natural
-                    # Tomamos el valor base de la hora y le agregamos "ruido" aleatorio
-                    # para que no sea una línea plana perfecta durante la hora.
+                    # Lógica de Contexto: ¿Qué mide este sensor?
+                    capabilities = self.SENSOR_CAPABILITIES.get(sensor.model, [])
                     
-                    # PM2.5: Base +/- 3 puntos
-                    val_pm25 = base_data['PM2.5'] + random.uniform(-3.0, 3.0)
-                    val_pm25 = max(0, val_pm25) # No negativos
+                    for code in capabilities:
+                        if code not in variables_cache: continue
+                        
+                        var_obj = variables_cache[code]
+                        base_val = base_data.get(code, 0)
+                        
+                        # Simulación
+                        variation = base_val * random.uniform(0.05, 0.15)
+                        sim_val = max(0, base_val + random.choice([variation, -variation]))
+                        if code == 'HUM': sim_val = min(100, sim_val)
 
-                    # Temp: Base +/- 0.5 grados
-                    val_temp = base_data['TEMP'] + random.uniform(-0.5, 0.5)
-
-                    # Humedad: Base +/- 2%
-                    val_hum = base_data['HUM'] + random.uniform(-2.0, 2.0)
-                    val_hum = max(0, min(100, val_hum))
-
-                    # 3. Persistencia
-                    self.save_measurement(sensor, var_pm25, val_pm25)
-                    self.save_measurement(sensor, var_temp, val_temp)
-                    self.save_measurement(sensor, var_hum, val_hum)
-
-                    self.stdout.write(
-                        f"[{now.strftime('%H:%M:%S')}] {sensor.serial_number} (Hora {current_hour}): "
-                        f"PM2.5={val_pm25:.1f} | TEMP={val_temp:.1f}°C | HUM={val_hum:.1f}%"
-                    )
-
-                # Frecuencia de actualización (ej: cada 10 segundos)
-                time.sleep(10)
+                        # Guardar
+                        self.save_measurement(sensor, var_obj, sim_val, now)
+                    
+                time.sleep(10) # Intervalo de envío
 
             except KeyboardInterrupt:
                 break
@@ -88,10 +85,14 @@ class Command(BaseCommand):
                 self.stdout.write(self.style.ERROR(f'Error: {e}'))
                 time.sleep(5)
 
-    def save_measurement(self, sensor, variable, value):
-        MeasurementService.create_measurement({
-            'sensor': sensor,
-            'variable': variable,
-            'value': round(value, 2),
-            'measure_date': timezone.now()
-        })
+    def save_measurement(self, sensor, variable, value, date):
+        try:
+            MeasurementService.create_measurement({
+                'sensor': sensor,
+                'variable': variable,
+                'value': round(value, 2),
+                'measure_date': date
+            })
+        except Exception:
+            pass
+    

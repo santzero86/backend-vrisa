@@ -12,6 +12,7 @@ class Command(BaseCommand):
     help = 'Puebla la DB con datos semilla y configura variables/sensores'
 
     def handle(self, *args, **kwargs):
+        """Método principal que orquesta la creación de datos semilla."""
         try:
             with transaction.atomic():
                 # Roles base
@@ -28,7 +29,7 @@ class Command(BaseCommand):
                 station = self.create_station(dagma, pepito)
 
                 # Crear Sensor asociado a la estación
-                self.create_sensor(station)
+                self.create_sensors(station)
 
                 self.stdout.write(self.style.SUCCESS('¡Base de datos poblada exitosamente!'))
 
@@ -148,25 +149,72 @@ class Command(BaseCommand):
         return station
 
     def create_variables(self):
-        """Inicializa el catálogo de variables"""
+        """Inicializa el catálogo completo de variables."""
         vars_data = [
             {'code': "PM2.5", 'name': "Material Particulado 2.5", 'unit': "µg/m³", 'min': 0, 'max': 500},
-            {'code': "TEMP", 'name': "Temperatura", 'unit': "°C", 'min': -10, 'max': 50},
-            {'code': "HUM", 'name': "Humedad", 'unit': "%", 'min': 0, 'max': 100},
+            {'code': "PM10",  'name': "Material Particulado 10",  'unit': "µg/m³", 'min': 0, 'max': 600},
+            {'code': "CO",    'name': "Monóxido de Carbono",      'unit': "µg/m³", 'min': 0, 'max': 15000},
+            {'code': "NO2",   'name': "Dióxido de Nitrógeno",     'unit': "µg/m³", 'min': 0, 'max': 400},
+            {'code': "SO2",   'name': "Dióxido de Azufre",        'unit': "µg/m³", 'min': 0, 'max': 500},
+            {'code': "O3",    'name': "Ozono Troposférico",       'unit': "µg/m³", 'min': 0, 'max': 300},
+            {'code': "TEMP",  'name': "Temperatura",              'unit': "°C",    'min': -10,'max': 50},
+            {'code': "HUM",   'name': "Humedad Relativa",         'unit': "%",     'min': 0,  'max': 100},
+        ]
+        for var in vars_data:
+            VariableCatalog.objects.get_or_create(code=var['code'], defaults={
+                'name': var['name'], 'unit': var['unit'], 
+                'min_expected_value': var['min'], 'max_expected_value': var['max']
+            })
+
+
+    def create_sensors(self, station: MonitoringStation):
+        """
+        Crea los 4 sensores específicos solicitados.
+        Usamos el campo 'model' para definir su especialidad.
+        """
+        sensors_fleet = [
+            # SENSOR 1: Clima (Temp + Humedad)
+            {
+                "serial": "SN-CLIMA-001", 
+                "model": "VriSA-Meteo", 
+                "desc": "Sensor Climático"
+            },
+            # SENSOR 2: Carbono y PM2.5
+            {
+                "serial": "SN-URBAN-001", 
+                "model": "VriSA-Urban-Eco", 
+                "desc": "Sensor Urbano (CO/PM2.5)"
+            },
+            # SENSOR 3: Industrial (Resto de gases y partículas pesadas)
+            {
+                "serial": "SN-INDUS-001", 
+                "model": "VriSA-Heavy-Ind", 
+                "desc": "Sensor Industrial (PM10/NO2/SO2)"
+            },
+            # SENSOR 4: Especializado en Ozono
+            {
+                "serial": "SN-OZONE-001", 
+                "model": "VriSA-O3-Only", 
+                "desc": "Sensor Especializado Ozono"
+            }
         ]
 
-        for var in vars_data:
-            obj, created = VariableCatalog.objects.get_or_create(
-                code=var['code'],
+        self.stdout.write("Configurando flota de 4 sensores...")
+
+        for s_data in sensors_fleet:
+            sensor, created = Sensor.objects.update_or_create(
+                serial_number=s_data["serial"],
                 defaults={
-                    'name': var['name'],
-                    'unit': var['unit'],
-                    'min_expected_value': var['min'],
-                    'max_expected_value': var['max']
+                    'model': s_data["model"], # ESTO ES CLAVE
+                    'manufacturer': 'VriSA Labs',
+                    'installation_date': timezone.now().date(),
+                    'status': Sensor.Status.ACTIVE,
+                    'station': station
                 }
             )
-            if created:
-                self.stdout.write(f'- Variable creada: {obj.name}')
+            state = "Creado" if created else "Verificado"
+            self.stdout.write(f'- {state}: {s_data["desc"]} ({sensor.serial_number})')
+
 
     def create_sensor(self, station: MonitoringStation):
         """Crea un sensor físico y lo asigna a la estación"""
