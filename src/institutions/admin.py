@@ -1,5 +1,5 @@
 from django.contrib import admin
-from src.institutions.models import EnvironmentalInstitution, IntegrationRequest, InstitutionColorSet
+from src.institutions.models import EnvironmentalInstitution, InstitutionColorSet
 
 class InstitutionColorSetInline(admin.TabularInline):
     """
@@ -19,14 +19,3 @@ class EnvironmentalInstitutionAdmin(admin.ModelAdmin):
     search_fields = ('institute_name', 'representative__email')
     list_filter = ('created_at',)
     inlines = [InstitutionColorSetInline] 
-
-# Panel para solicitudes: Visualiza estado y fechas. Búsqueda por nombre de institución asociada.
-@admin.register(IntegrationRequest)
-class IntegrationRequestAdmin(admin.ModelAdmin):
-    """
-    Configuración del panel de administración para Solicitudes.
-    Visualiza el estado, fechas y quién revisó la solicitud.
-    """
-    list_display = ('institution', 'request_status', 'request_date', 'reviewed_by')
-    search_fields = ('institution__institute_name',)
-    list_filter = ('request_status', 'request_date')
