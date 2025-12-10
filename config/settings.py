@@ -8,6 +8,9 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # Ruta física en el disco donde se guardarán los archivos subidos
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 
+# URL pública para acceder a esos archivos
+MEDIA_URL = '/media/'
+
 # SECURITY WARNING: keep the secret key used in production secret!
 SECRET_KEY = 'django-insecure-1)9&^#b#y@vosi%tc@6tsetwuu1w%hmlnt^wk&wk#+63_%idp0'
 
