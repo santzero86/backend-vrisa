@@ -2,10 +2,10 @@ import time
 import random
 from django.core.management.base import BaseCommand
 from django.utils import timezone
-from django.db.utils import OperationalError, ProgrammingError
+from django.db.utils import OperationalError
 from src.sensors.models import Sensor
-from src.measurements.models import VariableCatalog
-from src.measurements.services import MeasurementService
+from src.measurements.models import Measurement, VariableCatalog
+from src.measurements.services import AQICalculatorService, MeasurementService
 from src.measurements.utils.cali_profile import HOURLY_PROFILE
 
 class Command(BaseCommand):
@@ -97,6 +97,17 @@ class Command(BaseCommand):
                             f"[{timestamp}] {sensor.serial_number}: {' | '.join(log_readings)}"
                         ))
                 
+                 # Calcular y guardar AQI para cada estación con sensores
+                
+                stations_processed = set()
+                for sensor in sensors:
+                    if sensor.station and sensor.station.station_id not in stations_processed:
+                        try:
+                            self.calculate_and_save_aqi(sensor.station.station_id, now)
+                            stations_processed.add(sensor.station.station_id)
+                        except Exception as e:
+                            pass
+                
                 time.sleep(10) 
 
             except KeyboardInterrupt:
@@ -115,3 +126,46 @@ class Command(BaseCommand):
             })
         except Exception as e:
             print(f"Error guardando: {e}")
+
+    def calculate_and_save_aqi(self, station_id, timestamp):
+        """
+        Calcula el AQI para una estación y lo guarda como medición.
+        """
+        try:
+            # Calcular AQI
+            aqi_data = AQICalculatorService.calculate_aqi_for_station(
+                station_id=station_id,
+                timestamp=timestamp
+            )
+
+            # Obtener la variable AQI del catálogo
+            aqi_variable = VariableCatalog.objects.get(code='AQI')
+
+            # Obtener un sensor de la estación para asociar la medición
+            sensor = Sensor.objects.filter(
+                station_id=station_id,
+                status=Sensor.Status.ACTIVE
+            ).first()
+
+            if sensor:
+                Measurement.objects.create(
+                    sensor=sensor,
+                    variable=aqi_variable,
+                    value=round(aqi_data['aqi'], 2),
+                    measure_date=timestamp
+                )
+
+                timestamp_str = timestamp.strftime('%H:%M:%S')
+                self.stdout.write(
+                    self.style.SUCCESS(
+                        f"[{timestamp_str}] AQI Calculado: {aqi_data['aqi']:.2f} "
+                        f"({aqi_data['category']}) - Dominante: {aqi_data['dominant_pollutant']}"
+                    )
+                )
+
+        except ValueError:
+            pass
+        except VariableCatalog.DoesNotExist:
+            pass
+        except Exception:
+            pass
