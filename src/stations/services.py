@@ -1,11 +1,10 @@
 import secrets
 from django.db import transaction
 from django.shortcuts import get_object_or_404
-from common.validation import OperativeStatus 
+from common.validation import OperativeStatus, ValidationStatus
 from src.institutions.models import EnvironmentalInstitution
 from src.stations.models import MonitoringStation
-from src.users.models import User
-
+from src.users.models import User, UserRole
 
 
 def create_station(validated_data: dict, user_id: int) -> MonitoringStation:
@@ -29,7 +28,7 @@ def create_station(validated_data: dict, user_id: int) -> MonitoringStation:
     name = validated_data.get("station_name")
     lat = validated_data.get("geographic_location_lat")
     lon = validated_data.get("geographic_location_long")
-    address = validated_data.get('address_reference', '') 
+    address = validated_data.get("address_reference", "")
     institution_id = validated_data.get("institution_id")
 
     # Verificar Institución
@@ -47,7 +46,7 @@ def create_station(validated_data: dict, user_id: int) -> MonitoringStation:
             address_reference=address,
             institution=institution,
             manager_user=manager,
-            operative_status=OperativeStatus.PENDING
+            operative_status=OperativeStatus.PENDING,
         )
 
     return station
@@ -65,3 +64,33 @@ def regenerate_station_token(station_id: int) -> str:
     station.save()
 
     return new_token
+
+
+
+def approve_station_service(station_id: int) -> MonitoringStation:
+    """
+    Aprueba una estación de monitoreo y, como efecto en cascada,
+    aprueba el rol de 'station_admin' del usuario manager asociado.
+    """
+    station = get_object_or_404(MonitoringStation, pk=station_id)
+
+    # Si ya está activa, no hacemos nada (idempotencia)
+    if station.operative_status == OperativeStatus.ACTIVE:
+        return station
+
+    with transaction.atomic():
+        # 1. Actualizar estado de la estación
+        station.operative_status = OperativeStatus.ACTIVE
+        station.save()
+
+        # 2. Actualizar estado del rol del usuario manager
+        if station.manager_user:
+            # Buscamos específicamente el rol de station_admin pendiente
+            # para no aprobar accidentalmente otros roles que pueda tener solicitados.
+            UserRole.objects.filter(
+                user=station.manager_user,
+                role__role_name="station_admin",
+                approved_status=ValidationStatus.PENDING,
+            ).update(approved_status=ValidationStatus.ACCEPTED)
+
+    return station
