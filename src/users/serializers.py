@@ -93,13 +93,13 @@ class CompleteResearcherSerializer(serializers.Serializer):
     
     Se usa cuando un usuario ya registrado quiere completar su perfil
     como investigador, subiendo documentos y datos adicionales.
-    
-    Nota: No requiere email ya que el usuario ya está autenticado.
     """
-    full_name = serializers.CharField(max_length=300, required=False)  # Opcional, ya tiene nombre
+    full_name = serializers.CharField(max_length=300, required=False)
     document_type = serializers.CharField(max_length=50)
     document_number = serializers.CharField(max_length=50)
-    institution = serializers.CharField(max_length=255)
+    institution = serializers.CharField(max_length=255, required=False, allow_blank=True)
+    institution_id = serializers.IntegerField(required=False, allow_null=True)
+    is_independent = serializers.BooleanField(default=False)
     front_card = serializers.ImageField()
     back_card = serializers.ImageField()
 
