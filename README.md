@@ -45,6 +45,10 @@ Por ello, es recomendable tener en cuenta que existirán dos usuarios listos par
     correo: admin@vrisa.com
     password: admin1234
 
+**Representante de institución** 
+
+    correo:john.doe@dagma.gov
+    password: doe1234
 
 **Administrador de estación** 
 
