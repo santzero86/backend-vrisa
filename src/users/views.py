@@ -1,9 +1,10 @@
+from common.validation import ValidationStatus
 from rest_framework.views import APIView
 from rest_framework.response import Response
 from rest_framework import status, permissions
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.decorators import api_view, permission_classes
-from src.users.models import User
+from src.users.models import User, UserRole
 from src.users.serializers import (
     CustomTokenObtainPairSerializer,
     RegisterUserSerializer,
@@ -127,7 +128,12 @@ class PendingResearcherRequestsView(APIView):
         user = request.user
         
         # Validación de permisos 
-        is_institution_head = user.primary_role == 'institution_head'
+        is_institution_head = UserRole.objects.filter(
+            user=user,
+            role__role_name='institution_head',
+            approved_status=ValidationStatus.ACCEPTED
+        ).exists()
+        
         if not (user.is_superuser or is_institution_head):
             return Response({'error': 'No autorizado'}, status=status.HTTP_403_FORBIDDEN)
         

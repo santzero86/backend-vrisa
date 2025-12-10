@@ -90,23 +90,40 @@ def complete_researcher_registration(user: User, validated_data: dict) -> User:
     """
     document_type = validated_data["document_type"]
     document_number = validated_data["document_number"]
-    institution_name = validated_data["institution"]
     front_card = validated_data["front_card"]
     back_card = validated_data["back_card"]
+    
+    institution_id = validated_data.get("institution_id")
+    is_independent = validated_data.get("is_independent", False)
+    
+    institution_ref = None
+    institution_name_str = "Independiente"
+
+    if institution_id:
+        institution_ref = get_object_or_404(EnvironmentalInstitution, pk=institution_id)
+        institution_name_str = institution_ref.institute_name
+    elif not is_independent:
+        institution_name_str = validated_data.get("institution", "No especificada")
 
     with transaction.atomic():
         # Actualizar datos del usuario existente
-        user.job_title = f"{document_type}: {document_number} - {institution_name}"
+        user.job_title = f"{document_type}: {document_number} - {institution_name_str}"
+        
+        # Actualizar relación con institución (Si es independiente, esto será None)
+        user.institution = institution_ref
+        
         user.professional_card_front = front_card
         user.professional_card_rear = back_card
         user.save()
 
         # Verificar que tenga rol de investigador, si no lo tiene, crearlo
         researcher_role, _ = Role.objects.get_or_create(role_name="researcher")
-        UserRole.objects.get_or_create(
+        
+        # Buscar si ya tiene el rol asignado
+        UserRole.objects.update_or_create(
             user=user,
             role=researcher_role,
-            defaults={"approved_status": ValidationStatus.PENDING},
+            defaults={"approved_status": ValidationStatus.PENDING}
         )
     
     return user
