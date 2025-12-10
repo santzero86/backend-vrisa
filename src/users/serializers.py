@@ -87,6 +87,58 @@ class RegisterUserSerializer(serializers.Serializer):
             raise serializers.ValidationError("La institución seleccionada no existe.")
         return value
 
+class CompleteResearcherSerializer(serializers.Serializer):
+    """
+    Serializador para completar el registro de investigadores.
+    
+    Se usa cuando un usuario ya registrado quiere completar su perfil
+    como investigador, subiendo documentos y datos adicionales.
+    
+    Nota: No requiere email ya que el usuario ya está autenticado.
+    """
+    full_name = serializers.CharField(max_length=300, required=False)  # Opcional, ya tiene nombre
+    document_type = serializers.CharField(max_length=50)
+    document_number = serializers.CharField(max_length=50)
+    institution = serializers.CharField(max_length=255)
+    front_card = serializers.ImageField()
+    back_card = serializers.ImageField()
+
+
+class ResearcherRequestSerializer(serializers.ModelSerializer):
+    """
+    Serializador para mostrar las solicitudes de investigadores pendientes.
+    """
+    full_name = serializers.SerializerMethodField()
+    role_name = serializers.CharField(source='role.role_name', read_only=True)
+    user_email = serializers.CharField(source='user.email', read_only=True)
+    institution_name = serializers.SerializerMethodField()
+    professional_card_front = serializers.ImageField(source='user.professional_card_front', read_only=True)
+    professional_card_rear = serializers.ImageField(source='user.professional_card_rear', read_only=True)
+    
+    class Meta:
+        model = UserRole
+        fields = [
+            'id', 
+            'user_id',
+            'full_name',
+            'user_email', 
+            'role_name', 
+            'approved_status',
+            'institution_name',
+            'professional_card_front',
+            'professional_card_rear',
+            'assigned_at'
+        ]
+    
+    def get_full_name(self, obj):
+        return f"{obj.user.first_name} {obj.user.last_name}"
+    
+    def get_institution_name(self, obj):
+        if obj.user.institution:
+            return obj.user.institution.institute_name
+        return obj.user.job_title  # Usamos job_title para guardar la institución del investigador
+
+
 class CustomTokenObtainPairSerializer(TokenObtainPairSerializer):
     """
     Personaliza el payload del token JWT para incluir información contextual
