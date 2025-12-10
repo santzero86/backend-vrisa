@@ -1,9 +1,10 @@
 from rest_framework import viewsets, permissions, status
+from rest_framework.decorators import action
 from rest_framework.response import Response
 from django.core.exceptions import ValidationError as DjangoValidationError
 from .models import MonitoringStation
 from .serializers import CreateStationSerializer, MonitoringStationSerializer
-from .services import create_station
+from .services import create_station, approve_station_service 
 
 
 class StationViewSet(viewsets.ModelViewSet):
@@ -52,3 +53,20 @@ class StationViewSet(viewsets.ModelViewSet):
             return Response({"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
             return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+
+    @action(detail=True, methods=['post'], url_path='approve')
+    def approve(self, request, pk=None):
+        """
+        Endpoint personalizado para aprobar una estación.
+        POST: /api/stations/{id}/approve/
+        """
+        try:
+            station = approve_station_service(pk)
+            # Retornamos la data actualizada usando el serializador existente
+            serializer = self.get_serializer(station)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {"detail": "Error aprobando la estación", "error": str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
