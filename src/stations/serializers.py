@@ -1,7 +1,17 @@
 from rest_framework import serializers
 from src.institutions.models import EnvironmentalInstitution
-from src.stations.models import MonitoringStation, StationAffiliationRequest
+from src.sensors.models import Sensor
+from src.stations.models import MonitoringStation
 from src.users.serializers import UserSerializer
+
+
+class SimpleSensorSerializer(serializers.ModelSerializer):
+    """
+    Serializador ligero para mostrar en el listado de estaciones.
+    """
+    class Meta:
+        model = Sensor
+        fields = ['sensor_id', 'model', 'serial_number', 'status']
 
 
 class MonitoringStationSerializer(serializers.ModelSerializer):
@@ -14,6 +24,8 @@ class MonitoringStationSerializer(serializers.ModelSerializer):
     institution_name = serializers.CharField(
         source="institution.institute_name", read_only=True
     )
+    
+    sensors = SimpleSensorSerializer(many=True, read_only=True)
 
     class Meta:
         model = MonitoringStation
@@ -29,6 +41,7 @@ class MonitoringStationSerializer(serializers.ModelSerializer):
             "manager_user",
             "institution_id",
             "institution_name",
+            "sensors"
         ]
 
 
@@ -62,56 +75,3 @@ class CreateStationSerializer(serializers.Serializer):
         if not EnvironmentalInstitution.objects.filter(pk=value).exists():
             raise serializers.ValidationError("La institución no existe.")
         return value
-
-
-class StationAffiliationRequestSerializer(serializers.ModelSerializer):
-    """
-    Serializador para las solicitudes de afiliación.
-    """
-
-    station_name = serializers.CharField(source="station.station_name", read_only=True)
-    station_lat = serializers.FloatField(
-        source="station.geographic_location_lat", read_only=True
-    )
-    station_long = serializers.FloatField(
-        source="station.geographic_location_long", read_only=True
-    )
-    station_address = serializers.CharField(
-        source="station.address_reference", read_only=True
-    )
-    target_institution_name = serializers.CharField(
-        source="target_institution.institute_name", read_only=True
-    )
-    requester_name = serializers.CharField(
-        source="requester.get_full_name", read_only=True
-    )
-    reviewed_by_name = serializers.CharField(
-        source="reviewed_by.get_full_name", read_only=True
-    )
-
-    class Meta:
-        model = StationAffiliationRequest
-        fields = [
-            "request_id",
-            "station",
-            "station_name",
-            "station_lat",
-            "station_long",
-            "station_address",
-            "target_institution",
-            "target_institution_name",
-            "requester",
-            "requester_name",
-            "status",
-            "review_comments",
-            "reviewed_by_name",
-            "created_at",
-            "updated_at",
-        ]
-        read_only_fields = [
-            "status",
-            "requester",
-            "reviewed_by",
-            "created_at",
-            "updated_at",
-        ]
