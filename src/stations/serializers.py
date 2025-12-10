@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from src.institutions.models import EnvironmentalInstitution
-from src.stations.models import MonitoringStation, StationAffiliationRequest
+from src.stations.models import MonitoringStation, StationAffiliationRequest, StationRegistrationRequest
 from src.users.serializers import UserSerializer
 
 
@@ -23,6 +23,7 @@ class MonitoringStationSerializer(serializers.ModelSerializer):
             "operative_status",
             "geographic_location_lat",
             "geographic_location_long",
+            "address_reference",
             "created_at",
             "updated_at",
             "manager_user",
@@ -111,6 +112,54 @@ class StationAffiliationRequestSerializer(serializers.ModelSerializer):
             "status",
             "requester",
             "reviewed_by",
+            "created_at",
+            "updated_at",
+        ]
+
+class StationRegistrationRequestSerializer(serializers.ModelSerializer):
+    """
+    Serializador para solicitudes de registro de nuevas estaciones.
+    """
+    
+    target_institution_name = serializers.CharField(
+        source="target_institution.institute_name", read_only=True
+    )
+    requester_name = serializers.CharField(
+        source="requester.get_full_name", read_only=True
+    )
+    reviewed_by_name = serializers.CharField(
+        source="reviewed_by.get_full_name", read_only=True
+    )
+    
+    class Meta:
+        model = StationRegistrationRequest
+        fields = [
+            "request_id",
+            "station_name",
+            "geographic_location_lat",
+            "geographic_location_long",
+            "address_reference",
+            "sensor_model",
+            "sensor_manufacturer",
+            "sensor_serial",
+            "calibration_certificate",
+            "target_institution",
+            "target_institution_name",
+            "requester",
+            "requester_name",
+            "status",
+            "reviewed_by",
+            "reviewed_by_name",
+            "review_comments",
+            "created_at",
+            "updated_at",
+        ]
+        read_only_fields = [
+            "request_id",
+            "requester",
+            "status",
+            "reviewed_by",
+            "review_comments",
             "created_at",
             "updated_at",
         ]
