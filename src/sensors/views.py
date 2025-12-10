@@ -12,9 +12,31 @@ class SensorViewSet(viewsets.ModelViewSet):
     Delega la creación al SensorService para mantener la consistencia
     y permitir futuras expansiones de lógica de negocio.
     """
-    queryset = Sensor.objects.all()
+
     serializer_class = SensorSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Sobrescribe la consulta base para filtrar datos según el usuario.
+        """
+        user = self.request.user
+        queryset = Sensor.objects.all()
+
+        # Super Admin: Ve todos los sensores
+        if user.is_superuser:
+            return queryset
+
+        # Administrador de Estación (station_admin):
+        # Filtra los sensores que pertenecen a estaciones donde el usuario es el 'manager_user'.
+        if hasattr(user, "managed_stations") and user.managed_stations.exists():
+            return queryset.filter(station__manager_user=user)
+
+        # Jefe de Institución (institution_head): Ve sensores de todas las estaciones de su institución.
+        if user.institution:
+            return queryset.filter(station__institution=user.institution)
+
+        return queryset.none()
 
     def create(self, request, *args, **kwargs):
         """
@@ -31,7 +53,10 @@ class SensorViewSet(viewsets.ModelViewSet):
         except DjangoValidationError as e:
             return Response({"detail": e.messages}, status=status.HTTP_400_BAD_REQUEST)
         except Exception as e:
-            return Response({"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR)
+            return Response(
+                {"detail": str(e)}, status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
 
 class MaintenanceLogViewSet(viewsets.ModelViewSet):
     """
@@ -39,9 +64,31 @@ class MaintenanceLogViewSet(viewsets.ModelViewSet):
     Gestión de la bitácora de mantenimiento.
     """
 
-    queryset = MaintenanceLog.objects.all()
     serializer_class = MaintenanceLogSerializer
     permission_classes = [permissions.IsAuthenticated]
+
+    def get_queryset(self):
+        """
+        Filtra los registros de mantenimiento para mostrar solo los relacionados
+        con las estaciones que el usuario administra.
+        """
+        user = self.request.user
+        queryset = MaintenanceLog.objects.all()
+
+        # Super Admin: Ve todo el historial
+        if user.is_superuser:
+            return queryset
+
+        # Administrador de Estación (station_admin)
+        if hasattr(user, "managed_stations") and user.managed_stations.exists():
+            return queryset.filter(sensor__station__manager_user=user)
+
+        # Jefe de Institución (institution_head)
+        # Ve los mantenimientos de todos los sensores de su institución
+        if user.institution:
+            return queryset.filter(sensor__station__institution=user.institution)
+
+        return queryset.none()
 
     def perform_create(self, serializer):
         """
