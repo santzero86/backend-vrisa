@@ -17,6 +17,7 @@ class SimpleSensorSerializer(serializers.ModelSerializer):
 class MonitoringStationSerializer(serializers.ModelSerializer):
     """
     Serializador de SALIDA completo para la estación.
+    Mantiene compatibilidad con el frontend extrayendo lat/long del campo PostGIS 'location'.
     """
 
     # Incluimos detalles del manager para no mostrar solo el ID
@@ -24,8 +25,12 @@ class MonitoringStationSerializer(serializers.ModelSerializer):
     institution_name = serializers.CharField(
         source="institution.institute_name", read_only=True
     )
-    
+
     sensors = SimpleSensorSerializer(many=True, read_only=True)
+
+    # Extraer lat/long del campo Point para compatibilidad con frontend
+    geographic_location_lat = serializers.SerializerMethodField()
+    geographic_location_long = serializers.SerializerMethodField()
 
     class Meta:
         model = MonitoringStation
@@ -43,6 +48,14 @@ class MonitoringStationSerializer(serializers.ModelSerializer):
             "institution_name",
             "sensors"
         ]
+
+    def get_geographic_location_lat(self, obj):
+        """Extrae la latitud del Point."""
+        return obj.location.y if obj.location else None
+
+    def get_geographic_location_long(self, obj):
+        """Extrae la longitud del Point."""
+        return obj.location.x if obj.location else None
 
 
 class CreateStationSerializer(serializers.Serializer):

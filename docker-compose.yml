@@ -1,6 +1,6 @@
 services:
   vrisa_db:
-    image: postgres:15
+    image: postgis/postgis:15-3.3-alpine
     environment:
       POSTGRES_DB: vrisa_db
       POSTGRES_USER: vrisa_user
