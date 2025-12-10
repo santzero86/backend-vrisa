@@ -4,7 +4,13 @@ from rest_framework import status, permissions
 from rest_framework_simplejwt.views import TokenObtainPairView
 from rest_framework.decorators import api_view, permission_classes
 from src.users.models import User
-from src.users.serializers import CustomTokenObtainPairSerializer, RegisterUserSerializer, UserSerializer
+from src.users.serializers import (
+    CustomTokenObtainPairSerializer, 
+    RegisterUserSerializer, 
+    UserSerializer,
+    CompleteResearcherSerializer,
+    ResearcherRequestSerializer
+)
 import src.users.services as user_services
 
 class CustomTokenObtainPairView(TokenObtainPairView):
@@ -60,5 +66,105 @@ class UserStatsView(APIView):
         except Exception as e:
             return Response(
                 {'error': 'Error obteniendo estadísticas', 'details': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ResearcherRegistrationView(APIView):
+    """
+    Endpoint para completar el registro de investigadores.
+    Requiere que el usuario esté autenticado.
+    Permite subir documentos y completar información adicional.
+    La solicitud queda pendiente hasta que un admin la apruebe.
+    """
+    permission_classes = [permissions.IsAuthenticated]
+    
+    def post(self, request):
+        print("Data recibida (completar investigador):", request.data)
+        print("Usuario autenticado:", request.user.email)
+        
+        input_serializer = CompleteResearcherSerializer(data=request.data)
+        if input_serializer.is_valid():
+            try:
+                updated_user = user_services.complete_researcher_registration(
+                    request.user, 
+                    input_serializer.validated_data
+                )
+                output_serializer = UserSerializer(updated_user)
+                return Response(
+                    {
+                        'message': 'Registro completado correctamente. Espera la validación de un administrador.',
+                        'user': output_serializer.data
+                    }, 
+                    status=status.HTTP_200_OK
+                )
+            except Exception as e:
+                print(f"Error interno: {str(e)}")
+                return Response(
+                    {'error': 'Error interno del servidor', 'details': str(e)}, 
+                    status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                )
+        
+        print("Errores:", input_serializer.errors)
+        return Response(input_serializer.errors, status=status.HTTP_400_BAD_REQUEST)
+
+
+class PendingResearcherRequestsView(APIView):
+    """
+    Endpoint para listar todas las solicitudes de investigadores pendientes.
+    Solo accesible por administradores.
+    """
+    permission_classes = [permissions.IsAdminUser]
+    
+    def get(self, request):
+        try:
+            pending_requests = user_services.get_pending_researcher_requests()
+            serializer = ResearcherRequestSerializer(pending_requests, many=True)
+            return Response(serializer.data, status=status.HTTP_200_OK)
+        except Exception as e:
+            return Response(
+                {'error': 'Error obteniendo solicitudes pendientes', 'details': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class ApproveResearcherView(APIView):
+    """
+    Endpoint para aprobar una solicitud de investigador.
+    Solo accesible por administradores.
+    """
+    permission_classes = [permissions.IsAdminUser]
+    
+    def post(self, request, user_role_id):
+        try:
+            user_role = user_services.approve_researcher_request(user_role_id, request.user)
+            return Response(
+                {'message': 'Solicitud aprobada correctamente', 'status': user_role.approved_status},
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {'error': 'Error al aprobar la solicitud', 'details': str(e)}, 
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )
+
+
+class RejectResearcherView(APIView):
+    """
+    Endpoint para rechazar una solicitud de investigador.
+    Solo accesible por administradores.
+    """
+    permission_classes = [permissions.IsAdminUser]
+    
+    def post(self, request, user_role_id):
+        try:
+            user_role = user_services.reject_researcher_request(user_role_id, request.user)
+            return Response(
+                {'message': 'Solicitud rechazada', 'status': user_role.approved_status},
+                status=status.HTTP_200_OK
+            )
+        except Exception as e:
+            return Response(
+                {'error': 'Error al rechazar la solicitud', 'details': str(e)}, 
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR
             )
