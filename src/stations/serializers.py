@@ -1,6 +1,6 @@
 from rest_framework import serializers
 from src.institutions.models import EnvironmentalInstitution
-from src.stations.models import MonitoringStation, StationAffiliationRequest, StationRegistrationRequest
+from src.stations.models import MonitoringStation, StationAffiliationRequest
 from src.users.serializers import UserSerializer
 
 
