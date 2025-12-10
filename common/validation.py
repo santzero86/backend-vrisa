@@ -106,8 +106,8 @@ Cada categoría incluye:
     - description: Descripción breve de la calidad del aire
 """
 AQI_CATEGORIES = {
-    (0, 50): {'level': 'Good', 'color': '#00E400', 'description': 'Calidad del aire satisfactoria'},
-    (51, 100): {'level': 'Moderate', 'color': '#FFFF00', 'description': 'Calidad del aire aceptable'},
+    (0, 50): {'level': 'Good', 'color': "#0CDA0C", 'description': 'Calidad del aire satisfactoria'},
+    (51, 100): {'level': 'Moderate', 'color': "#FFD900", 'description': 'Calidad del aire aceptable'},
     (101, 150): {'level': 'Unhealthy for Sensitive Groups', 'color': '#FF7E00', 'description': 'Puede afectar a grupos sensibles'},
     (151, 200): {'level': 'Unhealthy', 'color': '#FF0000', 'description': 'Todos pueden experimentar efectos'},
     (201, 300): {'level': 'Very Unhealthy', 'color': '#8F3F97', 'description': 'Alerta de salud'},
