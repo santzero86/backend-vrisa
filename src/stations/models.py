@@ -1,6 +1,6 @@
 import secrets
 from django.conf import settings
-from django.db import models
+from django.contrib.gis.db import models
 from common.validation import OperativeStatus
 from src.institutions.models import EnvironmentalInstitution
 
@@ -39,14 +39,14 @@ class MonitoringStation(models.Model):
 
     # Dirección física o referencia (opcional)
     address_reference = models.CharField(
-        max_length=255, 
-        null=True, 
-        blank=True, 
+        max_length=255,
+        null=True,
+        blank=True,
         verbose_name="Dirección o Referencia Física"
     )
-    # Coordenadas geográficas (según diagrama: FLOAT)
-    geographic_location_lat = models.FloatField(verbose_name="Latitud")
-    geographic_location_long = models.FloatField(verbose_name="Longitud")
+
+    # Ubicación geográfica usando PostGIS (SRID 4326 = WGS84)
+    location = models.PointField(srid=4326, verbose_name="Ubicación")
 
     # Auditoría
     created_at = models.DateTimeField(
