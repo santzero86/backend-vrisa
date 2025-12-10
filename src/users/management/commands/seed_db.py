@@ -1,3 +1,4 @@
+from django.contrib.gis.geos import Point
 from django.core.management.base import BaseCommand
 from django.db import transaction
 from django.utils import timezone
@@ -174,11 +175,13 @@ class Command(BaseCommand):
     def create_station(self, institution: EnvironmentalInstitution, manager: User):
         station_name = "La Flora"
 
+        # Coordenadas de La Flora, Cali (IMPORTANTE: Point(longitud, latitud))
+        location_point = Point(-76.526, 3.476, srid=4326)
+
         station, created = MonitoringStation.objects.get_or_create(
             station_name=station_name,
             defaults={
-                "geographic_location_lat": 3.476,
-                "geographic_location_long": -76.526,
+                "location": location_point,
                 "institution": institution,
                 "manager_user": manager,
                 "operative_status": "ACTIVE",
