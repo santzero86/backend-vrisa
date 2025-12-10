@@ -363,6 +363,7 @@ class PDFReportGenerator:
         Genera un reporte visual de tendencias.
         Crea gráficas de línea (time-series) para cada variable solicitada usando Matplotlib
         y las incrusta como imágenes en el PDF.
+        Si 'station' es None, calcula el promedio de todas las estaciones (Ciudad).
 
         Args:
             station (MonitoringStation): La estación a analizar.
@@ -370,13 +371,12 @@ class PDFReportGenerator:
             end_date (str/date): Fecha de fin.
             variable_code (str, optional): Si se especifica, solo grafica esa variable.
         """
+        scope_name = station.station_name if station else "Promedio de Ciudad (Todas las estaciones)"
         subtitle = f"Desde: {start_date} Hasta: {end_date}"
         if variable_code:
             subtitle += f" | Variable: {variable_code}"
 
-        self.add_header(
-            "Reporte de Tendencias", f"Estación: {station.station_name} | {subtitle}"
-        )
+        self.add_header("Reporte de Tendencias", f"{scope_name} | {subtitle}")
 
         if variable_code:
             variables = VariableCatalog.objects.filter(code=variable_code)
@@ -384,39 +384,75 @@ class PDFReportGenerator:
             variables = VariableCatalog.objects.all()
 
         for var in variables:
-            data = Measurement.objects.filter(
-                sensor__station=station,
-                variable=var,
-                measure_date__range=[start_date, end_date],
-            ).order_by("measure_date")
+            plt.figure(figsize=(10, 4))
+            
+            # Filtros base
+            filters = {
+                "variable": var,
+                "measure_date__range": [start_date, end_date]
+            }
 
-            if data.exists():
+            if station:
+                # Estación Específica -> Datos crudos
+                filters["sensor__station"] = station
+                data = Measurement.objects.filter(**filters).order_by("measure_date")
+                
+                if not data.exists():
+                    plt.close()
+                    continue
+
                 dates = [m.measure_date for m in data]
                 values = [m.value for m in data]
-
-                plt.figure(figsize=(10, 4))
-                plt.plot(dates, values, label=var.name, color="#4339F2", linewidth=2)
-                plt.axhline(
-                    y=var.max_expected_value, color="r", linestyle="--", label="Límite"
+                label_legend = f"{var.name} ({station.station_name})"
+                
+            else:
+                # Todas las estaciones -> Agregar por promedio
+                # Es necesario agrupar por fecha para que la gráfica tenga sentido
+                data = (
+                    Measurement.objects.filter(**filters)
+                    .values('measure_date')
+                    .annotate(avg_value=Avg('value'))
+                    .order_by('measure_date')
                 )
-                plt.title(f"Comportamiento de {var.name}")
-                plt.ylabel(f"{var.unit}")
-                plt.legend()
-                plt.grid(True, linestyle="--", alpha=0.6)
-                plt.tight_layout()
 
-                img_buffer = io.BytesIO()
-                plt.savefig(img_buffer, format="png", dpi=100)
-                plt.close()
-                img_buffer.seek(0)
+                if not data.exists():
+                    plt.close()
+                    continue
 
-                self.elements.append(
-                    Paragraph(
-                        f"Variable: {var.name} ({var.code})", self.styles["Heading3"]
-                    )
-                )
-                self.elements.append(ImageRL(img_buffer, width=500, height=200))
-                self.elements.append(Spacer(1, 15))
+                dates = [x['measure_date'] for x in data]
+                values = [x['avg_value'] for x in data]
+                label_legend = f"{var.name} (Promedio Global)"
+
+            # Generación de la gráfica con Matplotlib
+            plt.plot(dates, values, label=label_legend, color="#4339F2", linewidth=2)
+            
+            # Línea de límite normativo
+            plt.axhline(
+                y=var.max_expected_value, color="r", linestyle="--", label=f"Límite ({var.max_expected_value})"
+            )
+            
+            plt.title(f"Comportamiento de {var.name}")
+            plt.ylabel(f"{var.unit}")
+            plt.legend()
+            plt.grid(True, linestyle="--", alpha=0.6)
+            plt.xticks(rotation=45, fontsize=8)
+            plt.tight_layout()
+
+            # Guardar imagen en memoria
+            img_buffer = io.BytesIO()
+            plt.savefig(img_buffer, format="png", dpi=100)
+            plt.close()
+            img_buffer.seek(0)
+
+            # Insertar en PDF
+            self.elements.append(
+                Paragraph(f"Variable: {var.name} ({var.code})", self.styles["Heading3"])
+            )
+            self.elements.append(ImageRL(img_buffer, width=500, height=220))
+            self.elements.append(Spacer(1, 15))
+
+        if len(self.elements) <= 5:
+            self.elements.append(Paragraph("No se encontraron datos para el rango seleccionado.", self.styles["Normal"]))
 
         self.doc.build(self.elements)
 

@@ -1,5 +1,6 @@
 import io
 from django.core.exceptions import ValidationError as DjangoValidationError
+from django.db.models import Avg
 from django.http import FileResponse
 from django.shortcuts import get_object_or_404
 from django.utils import timezone
@@ -66,6 +67,7 @@ class MeasurementViewSet(viewsets.ModelViewSet):
     def history(self, request):
         """
         Endpoint optimizado para gráficas.
+        Si station_id no se envía, calcula el PROMEDIO de todas las estaciones (Ciudad).
         Query Params:
             station_id,
             variable_code,
@@ -77,7 +79,7 @@ class MeasurementViewSet(viewsets.ModelViewSet):
         start_date = request.query_params.get("start_date")
         end_date = request.query_params.get("end_date")
 
-        if not all([station_id, variable_code, start_date, end_date]):
+        if not all([variable_code, start_date, end_date]):
             return Response(
                 {
                     "error": "Faltan parámetros (station_id, variable_code, start_date, end_date)"
@@ -86,59 +88,75 @@ class MeasurementViewSet(viewsets.ModelViewSet):
             )
 
         # Filtro base
-        queryset = self.queryset.filter(
-            sensor__station_id=station_id,
-            variable__code=variable_code,
-            measure_date__range=[
-                start_date,
-                end_date,
-            ],  # __date__range ignora la hora para abarcar todo el día
-        )
+        filters = {
+            "variable__code": variable_code,
+            "measure_date__range": [start_date, end_date],
+        }
 
-        data = queryset.values("measure_date", "value").order_by("measure_date")
+        if station_id:
+            # Estación específica
+            filters["sensor__station_id"] = station_id
+            queryset = (
+                self.queryset.filter(**filters)
+                .values("measure_date", "value")
+                .order_by("measure_date")
+            )
+        else:
+            # Todas las estaciones -> Promedio de ciudad
+            queryset = (
+                self.queryset.filter(**filters)
+                .values("measure_date")
+                .annotate(value=Avg("value"))
+                .order_by("measure_date")
+            )
 
-        return Response(list(data), status=status.HTTP_200_OK)
+        return Response(list(queryset), status=status.HTTP_200_OK)
 
 
 class AirQualityReportView(APIView):
     """
     Genera el reporte ejecutivo estadístico.
     """
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        station_id = request.query_params.get('station_id')
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-        single_date = request.query_params.get('date')
-        
+        station_id = request.query_params.get("station_id")
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
+        single_date = request.query_params.get("date")
+
         # Lógica de fechas
         if not start_date and single_date:
             start_date = single_date
-            end_date = single_date # El filtro range incluye el día completo si es date object
+            end_date = (
+                single_date  # El filtro range incluye el día completo si es date object
+            )
         elif not start_date or not end_date:
-             return Response({"error": "Se requiere start_date y end_date (o date)"}, status=400)
-        
+            return Response(
+                {"error": "Se requiere start_date y end_date (o date)"}, status=400
+            )
+
         # Resolver Estación (Objeto o None para Global)
         station = None
         if station_id and station_id not in ["", "null", "undefined"]:
             station = get_object_or_404(MonitoringStation, pk=station_id)
-        
-        variable_code = request.query_params.get('variable_code')
-        
+
+        variable_code = request.query_params.get("variable_code")
+
         buffer = io.BytesIO()
         report = PDFReportGenerator(buffer)
         report.generate_air_quality_report(station, start_date, end_date, variable_code)
         buffer.seek(0)
-        
+
         if station:
             scope_str = station.station_name.replace(" ", "_").lower()
         else:
-            scope_str = "cali_consolidated" 
-        
-        today_str = timezone.now().strftime('%Y%m%d')
+            scope_str = "cali_consolidated"
+
+        today_str = timezone.now().strftime("%Y%m%d")
         filename = f"{today_str}_vrisa_general_{scope_str}_report.pdf"
-        
+
         return FileResponse(buffer, as_attachment=True, filename=filename)
 
 
@@ -149,51 +167,65 @@ class TrendsReportView(APIView):
         station_id = request.query_params.get("station_id")
         start_date = request.query_params.get("start_date")
         end_date = request.query_params.get("end_date")
+        variable_code = request.query_params.get("variable_code")
 
-        if not station_id or not start_date or not end_date:
-            return Response({"error": "Faltan parámetros"}, status=400)
+        # Validación: Solo las fechas son estrictamente obligatorias ahora
+        if not start_date or not end_date:
+            return Response({"error": "Faltan parámetros de fecha (start_date, end_date)"}, status=400)
 
-        station = get_object_or_404(MonitoringStation, pk=station_id)
+        # Lógica para determinar si es una estación específica o todas
+        station = None
+        if station_id and station_id not in ["", "null", "undefined"]:
+            station = get_object_or_404(MonitoringStation, pk=station_id)
 
         buffer = io.BytesIO()
         report = PDFReportGenerator(buffer)
-        report.generate_trends_report(station, start_date, end_date)
+        
+        # Pasamos 'station' (que puede ser None) y el 'variable_code'
+        report.generate_trends_report(station, start_date, end_date, variable_code)
 
         buffer.seek(0)
 
-        clean_name = station.station_name.replace(" ", "_")
-        filename = f"{start_date}_to_{end_date}-{clean_name}-vrisa-trends.pdf"
+        # Nombre del archivo dinámico
+        scope_name = station.station_name.replace(" ", "_") if station else "consolidado_cali"
+        filename = f"{start_date}_to_{end_date}-{scope_name}-vrisa-trends.pdf"
 
         return FileResponse(buffer, as_attachment=True, filename=filename)
+
 
 class AlertsReportView(APIView):
     """
     Vista para generar el reporte de Alertas Críticas.
     """
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        station_id = request.query_params.get('station_id')
-        start_date = request.query_params.get('start_date')
-        end_date = request.query_params.get('end_date')
-        
+        station_id = request.query_params.get("station_id")
+        start_date = request.query_params.get("start_date")
+        end_date = request.query_params.get("end_date")
+
         #  Validar fechas
         if not start_date or not end_date:
             return Response({"error": "Se requieren start_date y end_date"}, status=400)
-        
+
         station = None
         if station_id and station_id not in ["", "null", "undefined"]:
             station = get_object_or_404(MonitoringStation, pk=station_id)
-        
+
         # Generar contenido del reporte
         buffer = io.BytesIO()
         report = PDFReportGenerator(buffer)
         report.generate_alerts_report(station, start_date, end_date)
         buffer.seek(0)
-        
+
         # Formato: YYYYMMDD_vrisa_alerts_report.pdf
-        today_str = timezone.now().strftime('%Y%m%d')
-        scope_str = station.station_name.replace(" ", "_").lower() if station else "cali_consolidated"
+        today_str = timezone.now().strftime("%Y%m%d")
+        scope_str = (
+            station.station_name.replace(" ", "_").lower()
+            if station
+            else "cali_consolidated"
+        )
         filename = f"{today_str}_vrisa_{scope_str}_alerts_report.pdf"
 
         return FileResponse(buffer, as_attachment=True, filename=filename)
@@ -211,13 +243,14 @@ class CurrentAQIView(APIView):
     - Contaminante dominante (el que determinó el AQI)
     - Sub-índices de cada contaminante
     """
+
     permission_classes = [permissions.IsAuthenticated]
 
     def get(self, request):
-        station_id = request.query_params.get('station_id')
-        
+        station_id = request.query_params.get("station_id")
+
         station_name = "Cali (Todas las estaciones)"
-        
+
         # Validación: Si viene ID, verificamos que la estación exista
         if station_id:
             station = get_object_or_404(MonitoringStation, pk=station_id)
@@ -225,19 +258,19 @@ class CurrentAQIView(APIView):
 
         try:
             s_id = int(station_id) if station_id else None
-            
+
             aqi_data = AQICalculatorService.calculate_aqi_for_station(station_id=s_id)
 
-            aqi_data['station_name'] = station_name
-            
+            aqi_data["station_name"] = station_name
+
             # Si se consultó una estación específica, agregamos su ID
             if s_id:
-                aqi_data['station_id'] = s_id
+                aqi_data["station_id"] = s_id
 
             return Response(aqi_data, status=status.HTTP_200_OK)
 
         except Exception as e:
             return Response(
                 {"error": "Error al calcular AQI", "detail": str(e)},
-                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
