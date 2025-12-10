@@ -29,6 +29,7 @@ INSTALLED_APPS = [
     'django.contrib.sessions',
     'django.contrib.messages',
     'django.contrib.staticfiles',
+    'django.contrib.gis',
     'src.users.apps.UsersConfig',
     'src.institutions.apps.InstitutionsConfig',
     'src.stations.apps.StationsConfig',
@@ -110,7 +111,7 @@ WSGI_APPLICATION = 'config.wsgi.application'
 
 DATABASES = {
     'default': {
-        'ENGINE': 'django.db.backends.postgresql',
+        'ENGINE': 'django.contrib.gis.db.backends.postgis',
         'NAME': os.environ.get('POSTGRES_DB', 'vrisa_db'),
         'USER': os.environ.get('POSTGRES_USER', 'vrisa_user'),
         'PASSWORD': os.environ.get('POSTGRES_PASSWORD', 'local_password_1234'),
