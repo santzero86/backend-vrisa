@@ -73,6 +73,93 @@ def create_user(validated_data: dict) -> User:
 
     return user
 
+def complete_researcher_registration(user: User, validated_data: dict) -> User:
+    """
+    Completa el registro de un investigador existente en VRISA.
+    
+    Actualiza los datos del usuario ya registrado con la información adicional
+    requerida para investigadores (documento, tarjeta profesional, etc.).
+    
+    Args:
+        user (User): Usuario autenticado que está completando su registro.
+        validated_data (dict): Diccionario con datos ya validados por el serializador.
+        
+    Returns:
+        User: Instancia del usuario actualizado.
+    """
+    document_type = validated_data['document_type']
+    document_number = validated_data['document_number']
+    institution_name = validated_data['institution']
+    front_card = validated_data['front_card']
+    back_card = validated_data['back_card']
+    
+    with transaction.atomic():
+        # Actualizar datos del usuario existente
+        user.job_title = f"{document_type}: {document_number} - {institution_name}"
+        user.professional_card_front = front_card
+        user.professional_card_rear = back_card
+        user.save()
+        
+        # Verificar que tenga rol de investigador, si no lo tiene, crearlo
+        researcher_role, _ = Role.objects.get_or_create(role_name='researcher')
+        user_role, created = UserRole.objects.get_or_create(
+            user=user,
+            role=researcher_role,
+            defaults={'approved_status': ValidationStatus.PENDING}
+        )
+        
+        # Si ya existía pero no está pendiente, mantenerlo como está
+        # (podría estar APPROVED o REJECTED)
+    
+    return user
+
+
+def get_pending_researcher_requests():
+    """
+    Obtiene todas las solicitudes de rol de investigador pendientes de aprobación.
+    """
+    return UserRole.objects.filter(
+        role__role_name='researcher',
+        approved_status=ValidationStatus.PENDING
+    ).select_related('user', 'role', 'user__institution')
+
+
+def approve_researcher_request(user_role_id: int, admin_user: User) -> UserRole:
+    """
+    Aprueba una solicitud de investigador.
+    
+    Args:
+        user_role_id: ID de la asignación de rol a aprobar
+        admin_user: Usuario admin que realiza la aprobación
+        
+    Returns:
+        UserRole: La asignación actualizada
+    """
+    user_role = get_object_or_404(UserRole, pk=user_role_id)
+    user_role.approved_status = ValidationStatus.ACCEPTED
+    user_role.assigned_by = admin_user
+    user_role.save()
+    return user_role
+
+
+def reject_researcher_request(user_role_id: int, admin_user: User) -> UserRole:
+    """
+    Rechaza una solicitud de investigador.
+    
+    Args:
+        user_role_id: ID de la asignación de rol a rechazar
+        admin_user: Usuario admin que realiza el rechazo
+        
+    Returns:
+        UserRole: La asignación actualizada
+    """
+    user_role = get_object_or_404(UserRole, pk=user_role_id)
+    user_role.approved_status = ValidationStatus.REJECTED
+    user_role.assigned_by = admin_user
+    user_role.save()
+    return user_role
+
+
 def get_user_by_id(user_id: int) -> User:
     """
     Método para obtener un usuario por su ID.
