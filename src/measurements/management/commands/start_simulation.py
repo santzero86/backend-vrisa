@@ -29,28 +29,20 @@ class Command(BaseCommand):
     }
 
     def handle(self, *args, **kwargs):
-        self.stdout.write(self.style.WARNING('--- Simulador de 4 Sensores Iniciado ---'))
+        self.stdout.write(self.style.WARNING('--- Simulador VriSA (Con Alertas) Iniciado ---'))
         
-        # 1. Espera DB
+        # Esperar DB
         while True:
             try:
                 if Sensor.objects.exists(): break
             except OperationalError:
-                time.sleep(1)
+                time.sleep(2)
         
-        # 2. Cargar Variables
-        variables_cache = {}
-        all_needed_codes = set([code for sublist in self.SENSOR_CAPABILITIES.values() for code in sublist])
-        
-        for code in all_needed_codes:
-            try:
-                variables_cache[code] = VariableCatalog.objects.get(code=code)
-            except VariableCatalog.DoesNotExist:
-                self.stdout.write(self.style.ERROR(f'Falta variable: {code}'))
+        variables_cache = {v.code: v for v in VariableCatalog.objects.all()}
 
-        self.stdout.write(self.style.SUCCESS('Configuración cargada. Enviando datos...'))
+        # Probabilidad de alerta en cada ciclo de envío (10%)
+        ALERT_CHANCE = 0.1
 
-        # 3. Bucle Principal
         while True:
             try:
                 now = timezone.now()
@@ -59,46 +51,58 @@ class Command(BaseCommand):
                 
                 sensors = Sensor.objects.filter(status=Sensor.Status.ACTIVE)
                 
+                # "Episodio Crítico"
+                is_critical_moment = random.random() < ALERT_CHANCE
+
                 for sensor in sensors:
-                    # Lógica de Contexto: ¿Qué mide este sensor?
                     capabilities = self.SENSOR_CAPABILITIES.get(sensor.model, [])
-                    
-                    # Lista para acumular los strings de log de este sensor en particular
                     log_readings = []
                     
                     for code in capabilities:
                         if code not in variables_cache: continue
-                        
                         var_obj = variables_cache[code]
                         base_val = base_data.get(code, 0)
                         
-                        # Simulación
+                        # Variación normal
                         variation = base_val * random.uniform(0.05, 0.15)
                         sim_val = max(0, base_val + random.choice([variation, -variation]))
+
+                        # --- INYECCIÓN DE ALERTA ---
+                        # Si estamos en momento crítico, y NO es temperatura/humedad (para dramatismo en contaminantes)
+                        if is_critical_moment and code not in ['TEMP', 'HUM']:
+                            # Generar valor de alerta
+                            spike = random.uniform(1.2, 3.0) # Hasta 3 veces lo normal
+                            sim_val = sim_val * spike
+                            
+                            # Asegurar que cruce el umbral para que se note en el frontend
+                            if sim_val < var_obj.max_expected_value:
+                                sim_val = var_obj.max_expected_value + 5.0
+                        
                         if code == 'HUM': sim_val = min(100, sim_val)
 
-                        # Guardar
+                        # Guardar usando el servicio (que ya modificamos en el Paso 1 para aceptar esto)
                         self.save_measurement(sensor, var_obj, sim_val, now)
                         
-                        log_readings.append(f"{code}={sim_val:.2f}")
+                        # Visualización en consola
+                        val_str = f"{sim_val:.2f}"
+                        if is_critical_moment and code not in ['TEMP', 'HUM']:
+                            val_str += " [ALERTA!]" # Marca visual en el log del contenedor
+                        
+                        log_readings.append(f"{code}={val_str}")
                 
                     if log_readings:
                         timestamp = now.strftime('%H:%M:%S')
-                        readings_str = " | ".join(log_readings)
-                        # Salida: [HH:MM:SS] SERIAL (MODELO): VAR1=VAL | VAR2=VAL
-                        self.stdout.write(
-                            f"[{timestamp}] {sensor.serial_number} ({sensor.model}): {readings_str}"
-                        )
+                        color_style = self.style.ERROR if is_critical_moment else self.style.SUCCESS
+                        self.stdout.write(color_style(
+                            f"[{timestamp}] {sensor.serial_number}: {' | '.join(log_readings)}"
+                        ))
                 
-                if sensors.exists():
-                    self.stdout.write("-" * 60)
-                
-                time.sleep(10) # Intervalo de envío
+                time.sleep(10) 
 
             except KeyboardInterrupt:
                 break
             except Exception as e:
-                self.stdout.write(self.style.ERROR(f'Error: {e}'))
+                self.stdout.write(self.style.ERROR(f'Error en simulador: {e}'))
                 time.sleep(5)
 
     def save_measurement(self, sensor, variable, value, date):
@@ -109,6 +113,5 @@ class Command(BaseCommand):
                 'value': round(value, 2),
                 'measure_date': date
             })
-        except Exception:
-            pass
-    
+        except Exception as e:
+            print(f"Error guardando: {e}")

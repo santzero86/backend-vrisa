@@ -44,17 +44,17 @@ class MeasurementService:
         variable = data.get("variable")
         value = data.get("value")
 
-        # 1. Validación de Negocio: Sensor Activo
+        # Sensor Activo
         if sensor.status != Sensor.Status.ACTIVE:
             raise ValidationError(
                 f"El sensor {sensor.serial_number} no está activo (Estado: {sensor.status})."
             )
 
-        # 2. Validación de Negocio: Rango de valores (Calidad de datos simple)
-        if value < variable.min_expected_value or value > variable.max_expected_value:
-            raise ValidationError(
-                f"El valor {value} está fuera del rango permitido para {variable.code}."
-            )
+        if value < 0: 
+             raise ValidationError(f"El valor no puede ser negativo para {variable.code}.")
+             
+        if variable.code == 'HUM' and value > 100:
+             raise ValidationError("La humedad no puede superar el 100%.")
 
         with transaction.atomic():
             measurement = Measurement.objects.create(**data)

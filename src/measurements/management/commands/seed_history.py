@@ -27,72 +27,79 @@ class Command(BaseCommand):
     }
 
     def handle(self, *args, **kwargs):
-        self.stdout.write("--- Iniciando historial para 4 sensores ---")
+        self.stdout.write("--- Iniciando historial CON ANOMALÍAS ---")
 
-        # 1. Configuración de tiempo
         days_back = 30
         end_date = timezone.now()
         start_date = end_date - timedelta(days=days_back)
 
-        # 2. Verificar Idempotencia
         if Measurement.objects.filter(measure_date__gte=start_date).count() > 100:
-            self.stdout.write(self.style.WARNING('Datos recientes detectados. Omitiendo generación.'))
+            self.stdout.write(self.style.WARNING('Datos detectados. Limpia la DB si quieres regenerar.'))
             return
 
-        # 3. Cargar Sensores
         sensors = Sensor.objects.filter(status=Sensor.Status.ACTIVE)
-        if not sensors.exists():
-            self.stdout.write(self.style.ERROR('No hay sensores. Ejecuta seed_db.'))
-            return
+        variables_map = {v.code: v for v in VariableCatalog.objects.all()}
 
-        # 4. Cachear variables necesarias
-        variables_map = {}
-        all_needed_codes = set([code for sublist in self.SENSOR_CAPABILITIES.values() for code in sublist])
-        
-        for code in all_needed_codes:
-            try:
-                variables_map[code] = VariableCatalog.objects.get(code=code)
-            except VariableCatalog.DoesNotExist:
-                self.stdout.write(self.style.WARNING(f'Variable {code} no existe en DB.'))
-
-        # 5. Generación
         current_date = start_date
-        total = 0
         batch = []
+        total = 0
+
+        # Probabilidad de que un día sea "malo" (Evento de contaminación)
+        EVENT_PROBABILITY = 0.05 
 
         while current_date <= end_date:
             hour_str = str(current_date.hour)
             base_data = HOURLY_PROFILE.get(hour_str, HOURLY_PROFILE.get("0"))
 
+            # Determinar si en esta hora específica ocurre una anomalía (Pico de contaminación)
+            is_anomaly_hour = random.random() < EVENT_PROBABILITY
+
             for sensor in sensors:
-                # Obtenemos QUÉ debe medir este sensor según su modelo
                 allowed_vars = self.SENSOR_CAPABILITIES.get(sensor.model, [])
 
                 for code in allowed_vars:
                     if code not in variables_map: continue
                     
-                    # Valor base del perfil
                     base_val = base_data.get(code, 0)
-                    
-                    # Variabilidad aleatoria
+                    var_obj = variables_map[code]
+
+                    # Lógica de Ruido Normal
                     noise = base_val * random.uniform(0.05, 0.15)
                     final_val = max(0, base_val + random.choice([noise, -noise]))
+
+                    # --- LÓGICA DE ALERTA (DATOS ATÍPICOS) ---
+                    # Si es hora de anomalía y NO es Humedad (la humedad no suele tener picos de "alerta" peligrosa igual que gases)
+                    if is_anomaly_hour and code != 'HUM':
+                        # Multiplicador agresivo para superar el límite
+                        spike_factor = random.uniform(1.5, 4.0) 
+                        
+                        # Forzamos que supere el límite máximo configurado
+                        limit = var_obj.max_expected_value
+                        potential_alert_val = final_val * spike_factor
+                        
+                        # Aseguramos que sea una alerta real (un poco por encima del límite)
+                        if potential_alert_val < limit:
+                            potential_alert_val = limit + random.uniform(1, 20)
+                        
+                        final_val = potential_alert_val
+
+                    # Corrección física para Humedad
                     if code == "HUM": final_val = min(100, final_val)
 
                     batch.append(Measurement(
                         sensor=sensor,
-                        variable=variables_map[code],
+                        variable=var_obj,
                         value=round(final_val, 2),
                         measure_date=current_date
                     ))
                     total += 1
 
-            if len(batch) >= 2000:
+            if len(batch) >= 5000:
                 Measurement.objects.bulk_create(batch)
                 batch = []
-                self.stdout.write(f"... {total} registros")
+                self.stdout.write(f"... {total} registros (Fecha: {current_date.date()})")
 
             current_date += timedelta(hours=1)
 
         if batch: Measurement.objects.bulk_create(batch)
-        self.stdout.write(self.style.SUCCESS(f'Historial completado: {total} registros.'))
+        self.stdout.write(self.style.SUCCESS(f'Historial completado con alertas: {total} registros.'))
