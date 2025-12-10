@@ -89,7 +89,7 @@ class MeasurementViewSet(viewsets.ModelViewSet):
         queryset = self.queryset.filter(
             sensor__station_id=station_id,
             variable__code=variable_code,
-            measure_date__date__range=[
+            measure_date__range=[
                 start_date,
                 end_date,
             ],  # __date__range ignora la hora para abarcar todo el día
