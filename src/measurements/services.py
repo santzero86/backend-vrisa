@@ -197,6 +197,7 @@ class PDFReportGenerator:
                 "Máximo",
                 "Mediana",
                 "Desv. Std",
+                "C.V (%)",
                 "Límite",
                 "Estado",
             ]
@@ -213,6 +214,13 @@ class PDFReportGenerator:
             max_val = group["value"].max()
             median = group["value"].median()
             std_dev = group["value"].std()
+
+            # CV = (Desviación Estándar / Media) * 100
+            # Evitamos división por cero
+            if mean != 0 and not pd.isna(std_dev):
+                cv = (std_dev / abs(mean)) * 100
+            else:
+                cv = 0.0
 
             # Metadatos de la variable (tomamos el primero del grupo)
             unit = group["variable__unit"].iloc[0]
@@ -248,13 +256,15 @@ class PDFReportGenerator:
                 f"{max_val:.2f}",
                 f"{median:.2f}",
                 f"{std_dev:.2f}" if not pd.isna(std_dev) else "0.00",
+                f"{cv:.1f}%",
                 f"{limit_max:.0f}",
                 status,
             ]
             summary_data.append(row)
 
+        col_widths = [55, 45, 55, 55, 45, 45, 45, 55, 50, 45, 55]
         # Renderizar Tabla Resumen
-        table = Table(summary_data, colWidths=[60, 50, 60, 60, 50, 50, 50, 60, 50, 60])
+        table = Table(summary_data, colWidths=col_widths)
 
         # Estilos dinámicos para la columna de Estado
         table_styles = [
@@ -268,16 +278,16 @@ class PDFReportGenerator:
             ("ALIGN", (0, 0), (-1, -1), "CENTER"),
             ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
             ("GRID", (0, 0), (-1, -1), 0.5, colors.grey),
-            ("FONTSIZE", (0, 0), (-1, -1), 9),
+            ("FONTSIZE", (0, 0), (-1, -1), 8),
             ("BOTTOMPADDING", (0, 0), (-1, 0), 12),
         ]
 
         # Pintar celdas de estado (Fila, Columna 9 es 'Estado')
         for i, row in enumerate(summary_data[1:], start=1):
             bg_color = colors.red if row[-1] == "ALERTA" else colors.green
-            table_styles.append(("BACKGROUND", (9, i), (9, i), bg_color))
-            table_styles.append(("TEXTCOLOR", (9, i), (9, i), colors.white))
-            table_styles.append(("FONTNAME", (9, i), (9, i), "Helvetica-Bold"))
+            table_styles.append(("BACKGROUND", (10, i), (10, i), bg_color))
+            table_styles.append(("TEXTCOLOR", (10, i), (10, i), colors.white))
+            table_styles.append(("FONTNAME", (10, i), (10, i), "Helvetica-Bold"))
 
         table.setStyle(TableStyle(table_styles))
         self.elements.append(table)
@@ -303,11 +313,11 @@ class PDFReportGenerator:
 
             # Headers de alertas
             alerts_data = [
-                ["Fecha y Hora", "Variable", "Valor Registrado", "Límite Permitido"]
+                ["Fecha y Hora", "Estación", "Variable", "Valor Registrado", "Límite Permitido"]
             ] + alerts_detected
 
             alert_table = Table(
-                alerts_data, colWidths=[150, 100, 100, 100], repeatRows=1
+                alerts_data, colWidths=[110, 140, 60, 90, 90], repeatRows=1
             )
             alert_table.setStyle(
                 TableStyle(
