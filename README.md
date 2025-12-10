@@ -12,9 +12,6 @@ Activar el entorno virtual
 ```
 source vrisa_env/bin/activate
 ```
-Cuando esté activo, verás algo como:
-
-(venv) pepito@...
 
 4. Instalar Django dentro del venv
 ```
@@ -62,3 +59,12 @@ python manage.py startapp nombre_app
 
 python manage.py runserver
 ```
+
+El servicio de AQI calcula el Índice de Calidad del Aire basado en el estándar **US EPA** utilizando 6 contaminantes atmosféricos:
+
+- **PM2.5** - Material Particulado 2.5 µm
+- **PM10** - Material Particulado 10 µm
+- **O3** - Ozono
+- **CO** - Monóxido de Carbono
+- **NO2** - Dióxido de Nitrógeno
+- **SO2** - Dióxido de Azufre

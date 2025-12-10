@@ -1,15 +1,18 @@
 import io
+from datetime import timedelta
 import matplotlib
 import matplotlib.pyplot as plt
 import pandas as pd
 from django.core.exceptions import ValidationError
 from django.db import transaction
+from django.db.models import Avg
 from django.utils import timezone
 from reportlab.lib import colors
 from reportlab.lib.pagesizes import landscape, letter
 from reportlab.lib.styles import ParagraphStyle, getSampleStyleSheet
 from reportlab.platypus import Image as ImageRL
 from reportlab.platypus import Paragraph, SimpleDocTemplate, Spacer, Table, TableStyle
+from common.validation import AQI_BREAKPOINTS, AQI_CATEGORIES
 from src.sensors.models import Sensor
 from .models import Measurement, VariableCatalog
 
@@ -50,11 +53,13 @@ class MeasurementService:
                 f"El sensor {sensor.serial_number} no está activo (Estado: {sensor.status})."
             )
 
-        if value < 0: 
-             raise ValidationError(f"El valor no puede ser negativo para {variable.code}.")
-             
-        if variable.code == 'HUM' and value > 100:
-             raise ValidationError("La humedad no puede superar el 100%.")
+        if value < 0:
+            raise ValidationError(
+                f"El valor no puede ser negativo para {variable.code}."
+            )
+
+        if variable.code == "HUM" and value > 100:
+            raise ValidationError("La humedad no puede superar el 100%.")
 
         with transaction.atomic():
             measurement = Measurement.objects.create(**data)
@@ -313,7 +318,13 @@ class PDFReportGenerator:
 
             # Headers de alertas
             alerts_data = [
-                ["Fecha y Hora", "Estación", "Variable", "Valor Registrado", "Límite Permitido"]
+                [
+                    "Fecha y Hora",
+                    "Estación",
+                    "Variable",
+                    "Valor Registrado",
+                    "Límite Permitido",
+                ]
             ] + alerts_detected
 
             alert_table = Table(
@@ -419,25 +430,28 @@ class PDFReportGenerator:
             station_id (int, optional): ID de la estación para filtrar. Si es None, busca en todas.
         """
         scope_name = station.station_name if station else "Red de Monitoreo de Cali"
-        self.add_header(f"Reporte de Alertas Críticas - {scope_name}", f"Periodo: {start_date} al {end_date}")
-        
+        self.add_header(
+            f"Reporte de Alertas Críticas - {scope_name}",
+            f"Periodo: {start_date} al {end_date}",
+        )
+
         # Filtros
-        filters = {
-            'measure_date__date__range': [start_date, end_date]
-        }
+        filters = {"measure_date__date__range": [start_date, end_date]}
         if station:
-            filters['sensor__station'] = station
-        
+            filters["sensor__station"] = station
+
         # Consultar datos
-        queryset = Measurement.objects.filter(**filters).select_related('variable', 'sensor__station')
-        
+        queryset = Measurement.objects.filter(**filters).select_related(
+            "variable", "sensor__station"
+        )
+
         alerts_detected = []
 
         # Procesar para encontrar valores fuera de rango ( > max o < min )
         for m in queryset:
             is_critical = False
             limit_ref = 0
-            
+
             # Verificación Límite Superior
             if m.value > m.variable.max_expected_value:
                 is_critical = True
@@ -448,36 +462,313 @@ class PDFReportGenerator:
                 limit_ref = m.variable.min_expected_value
 
             if is_critical:
-                alerts_detected.append([
-                    m.measure_date.strftime('%Y-%m-%d %H:%M'),
-                    m.sensor.station.station_name,
-                    m.variable.code,
-                    f"{m.value:.2f} {m.variable.unit}",
-                    f"{limit_ref:.2f}"
-                ])
+                alerts_detected.append(
+                    [
+                        m.measure_date.strftime("%Y-%m-%d %H:%M"),
+                        m.sensor.station.station_name,
+                        m.variable.code,
+                        f"{m.value:.2f} {m.variable.unit}",
+                        f"{limit_ref:.2f}",
+                    ]
+                )
 
         # Renderizar Tabla
         if not alerts_detected:
-            self.elements.append(Paragraph("No se han detectado alertas críticas en el periodo seleccionado.", self.styles['Normal']))
+            self.elements.append(
+                Paragraph(
+                    "No se han detectado alertas críticas en el periodo seleccionado.",
+                    self.styles["Normal"],
+                )
+            )
         else:
-            self.elements.append(Paragraph(f"Se encontraron {len(alerts_detected)} eventos fuera de norma:", self.styles['Normal']))
+            self.elements.append(
+                Paragraph(
+                    f"Se encontraron {len(alerts_detected)} eventos fuera de norma:",
+                    self.styles["Normal"],
+                )
+            )
             self.elements.append(Spacer(1, 10))
-            
+
             # Ordenar por fecha
             alerts_detected.sort(key=lambda x: x[0])
 
-            data = [['Fecha/Hora', 'Estación', 'Variable', 'Valor Registrado', 'Límite Permitido']] + alerts_detected
+            data = [
+                [
+                    "Fecha/Hora",
+                    "Estación",
+                    "Variable",
+                    "Valor Registrado",
+                    "Límite Permitido",
+                ]
+            ] + alerts_detected
 
             table = Table(data, colWidths=[110, 150, 80, 100, 100], repeatRows=1)
-            table.setStyle(TableStyle([
-                ('BACKGROUND', (0, 0), (-1, 0), colors.firebrick), # Rojo Alerta
-                ('TEXTCOLOR', (0, 0), (-1, 0), colors.white),
-                ('ALIGN', (0, 0), (-1, -1), 'CENTER'),
-                ('FONTNAME', (0, 0), (-1, 0), 'Helvetica-Bold'),
-                ('GRID', (0, 0), (-1, -1), 0.5, colors.black),
-                ('ROWBACKGROUNDS', (0, 1), (-1, -1), [colors.whitesmoke, colors.white]),
-                ('TEXTCOLOR', (3, 1), (3, -1), colors.red), # Texto del valor en rojo
-            ]))
+            table.setStyle(
+                TableStyle(
+                    [
+                        (
+                            "BACKGROUND",
+                            (0, 0),
+                            (-1, 0),
+                            colors.firebrick,
+                        ),  # Rojo Alerta
+                        ("TEXTCOLOR", (0, 0), (-1, 0), colors.white),
+                        ("ALIGN", (0, 0), (-1, -1), "CENTER"),
+                        ("FONTNAME", (0, 0), (-1, 0), "Helvetica-Bold"),
+                        ("GRID", (0, 0), (-1, -1), 0.5, colors.black),
+                        (
+                            "ROWBACKGROUNDS",
+                            (0, 1),
+                            (-1, -1),
+                            [colors.whitesmoke, colors.white],
+                        ),
+                        (
+                            "TEXTCOLOR",
+                            (3, 1),
+                            (3, -1),
+                            colors.red,
+                        ),  # Texto del valor en rojo
+                    ]
+                )
+            )
             self.elements.append(table)
 
         self.doc.build(self.elements)
+
+
+class AQICalculatorService:
+    """
+    Servicio para calcular el Índice de Calidad del Aire (AQI).
+    Implementa el estándar US EPA utilizando 6 criterios de contaminación:
+    - PM2.5 (Material Particulado 2.5)
+    - PM10 (Material Particulado 10)
+    - O3 (Ozono)
+    - CO (Monóxido de Carbono)
+    - NO2 (Dióxido de Nitrógeno)
+    - SO2 (Dióxido de Azufre)
+    """
+
+    # Contaminantes soportados para cálculo de AQI
+    SUPPORTED_POLLUTANTS = ["PM2.5", "PM10", "O3", "CO", "NO2", "SO2"]
+
+    @staticmethod
+    def calculate_sub_index(pollutant_code: str, concentration: float) -> float:
+        """
+        Calcula el sub-índice de AQI para un contaminante específico.
+        Usa la fórmula EPA:
+        I = [(I_high - I_low) / (C_high - C_low)] * (C - C_low) + I_low
+        Args:
+            pollutant_code: Código del contaminante (ej: 'PM2.5', 'O3')
+            concentration: Concentración medida del contaminante
+        Returns:
+            float: Valor del sub-índice (0-500+)
+        Raises:
+            ValueError: Si el contaminante no está soportado
+        """
+        if pollutant_code not in AQI_BREAKPOINTS:
+            raise ValueError(
+                f"Contaminante {pollutant_code} no soportado para cálculo de AQI"
+            )
+
+        if concentration < 0:
+            return 0
+
+        breakpoints = AQI_BREAKPOINTS[pollutant_code]
+
+        # Encontrar el breakpoint correcto
+        for c_low, c_high, i_low, i_high in breakpoints:
+            if c_low <= concentration <= c_high:
+                # Fórmula lineal EPA
+                sub_index = ((i_high - i_low) / (c_high - c_low)) * (
+                    concentration - c_low
+                ) + i_low
+                return round(sub_index, 2)
+
+        # Si excede el máximo, retornar el valor más alto
+        if concentration > breakpoints[-1][1]:
+            # Usar el último breakpoint para calcular una extrapolación
+            c_low, c_high, i_low, i_high = breakpoints[-1]
+            sub_index = ((i_high - i_low) / (c_high - c_low)) * (
+                concentration - c_low
+            ) + i_low
+            return round(sub_index, 2)
+
+        return 0
+
+    @staticmethod
+    def get_aqi_category(aqi_value: float) -> dict:
+        """
+        Obtiene la categoría descriptiva del AQI.
+        Args:
+            aqi_value: Valor del AQI calculado
+        Returns:
+            dict: Información de la categoría (level, color, description)
+        """
+        for (low, high), category_info in AQI_CATEGORIES.items():
+            if low <= aqi_value <= high:
+                return category_info
+
+        # Si excede 500, retornar Hazardous
+        return AQI_CATEGORIES[(301, 500)]
+
+    @staticmethod
+    def calculate_aqi_for_station(station_id: int, timestamp=None) -> dict:
+        """
+        Calcula el AQI actual para una estación específica.
+        Obtiene las últimas mediciones disponibles de cada contaminante,
+        calcula los sub-índices y retorna el máximo (peor valor) como AQI final.
+        Args:
+            station_id: ID de la estación de monitoreo
+            timestamp: Momento específico para calcular (default: ahora)
+        Returns:
+            dict: {
+                'aqi': float,
+                'category': str,
+                'dominant_pollutant': str,
+                'timestamp': datetime,
+                'sub_indices': dict
+            }
+        Raises:
+            ValueError: Si no hay datos suficientes para calcular AQI
+        """
+        if timestamp is None:
+            timestamp = timezone.now()
+
+        # Ventana de tiempo: últimas 24 horas
+        time_window_start = timestamp - timedelta(hours=24)
+
+        sub_indices = {}
+
+        # Calcular sub-índice para cada contaminante
+        for pollutant_code in AQICalculatorService.SUPPORTED_POLLUTANTS:
+            try:
+                # Obtener la variable del catálogo
+                variable = VariableCatalog.objects.get(code=pollutant_code)
+
+                # Obtener mediciones recientes para esta variable en la estación
+                measurements = Measurement.objects.filter(
+                    sensor__station_id=station_id,
+                    variable=variable,
+                    measure_date__gte=time_window_start,
+                    measure_date__lte=timestamp,
+                ).order_by("-measure_date")
+
+                if measurements.exists():
+                    if pollutant_code in ["PM2.5", "PM10"]:
+                        avg_concentration = measurements.aggregate(Avg("value"))[
+                            "value__avg"
+                        ]
+                    else:
+                        avg_concentration = measurements.first().value
+
+                    # Calcular sub-índice
+                    sub_index = AQICalculatorService.calculate_sub_index(
+                        pollutant_code, avg_concentration
+                    )
+                    sub_indices[pollutant_code] = sub_index
+
+            except VariableCatalog.DoesNotExist:
+                continue
+
+        if not sub_indices:
+            raise ValueError(
+                f"No hay datos suficientes para calcular AQI en la estación {station_id}"
+            )
+
+        # El AQI final es el MÁXIMO de todos los sub-índices (el peor)
+        aqi_value = max(sub_indices.values())
+        dominant_pollutant = max(sub_indices, key=sub_indices.get)
+
+        # Obtener categoría
+        category_info = AQICalculatorService.get_aqi_category(aqi_value)
+
+        return {
+            "aqi": round(aqi_value, 2),
+            "category": category_info["level"],
+            "category_description": category_info["description"],
+            "color": category_info["color"],
+            "dominant_pollutant": dominant_pollutant,
+            "timestamp": timestamp,
+            "sub_indices": sub_indices,
+        }
+
+    @staticmethod
+    def calculate_aqi_historical(
+        station_id: int, start_date, end_date, interval_hours=1
+    ):
+        """
+        Calcula el AQI histórico para una estación en un rango de fechas.
+        Genera valores de AQI agregados por intervalos de tiempo y los persiste
+        como mediciones en la base de datos con variable_code='AQI'.
+        Args:
+            station_id: ID de la estación
+            start_date: Fecha de inicio
+            end_date: Fecha de fin
+            interval_hours: Intervalo en horas entre cálculos (default: 1)
+        Returns:
+            int: Cantidad de registros de AQI creados
+        """
+        # Obtener o crear la variable AQI en el catálogo
+        aqi_variable, created = VariableCatalog.objects.get_or_create(
+            code="AQI",
+            defaults={
+                "name": "Índice de Calidad del Aire",
+                "unit": "AQI",
+                "min_expected_value": 0,
+                "max_expected_value": 500,
+            },
+        )
+
+        # Obtener un sensor de la estación para asociar las mediciones
+        # (Usamos el primer sensor activo disponible)
+        sensor = Sensor.objects.filter(
+            station_id=station_id, status=Sensor.Status.ACTIVE
+        ).first()
+
+        if not sensor:
+            raise ValueError(f"No hay sensores activos en la estación {station_id}")
+
+        current_time = start_date
+        aqi_records = []
+        created_count = 0
+
+        while current_time <= end_date:
+            try:
+                # Calcular AQI para este timestamp
+                aqi_data = AQICalculatorService.calculate_aqi_for_station(
+                    station_id, current_time
+                )
+
+                # Verificar si ya existe una medición de AQI en este timestamp
+                existing = Measurement.objects.filter(
+                    sensor=sensor, variable=aqi_variable, measure_date=current_time
+                ).exists()
+
+                if not existing:
+                    # Crear registro de medición
+                    aqi_records.append(
+                        Measurement(
+                            sensor=sensor,
+                            variable=aqi_variable,
+                            value=aqi_data["aqi"],
+                            measure_date=current_time,
+                        )
+                    )
+                    created_count += 1
+
+                # Hacer bulk insert cada 500 registros
+                if len(aqi_records) >= 500:
+                    Measurement.objects.bulk_create(aqi_records, ignore_conflicts=True)
+                    aqi_records = []
+
+            except ValueError:
+                # Si no hay datos suficientes para este timestamp, continuar
+                pass
+
+            current_time += timedelta(hours=interval_hours)
+
+        # Insertar registros restantes
+        if aqi_records:
+            Measurement.objects.bulk_create(aqi_records, ignore_conflicts=True)
+
+        return created_count

@@ -10,7 +10,7 @@ from rest_framework.views import APIView
 from src.stations.models import MonitoringStation
 from .models import Measurement, VariableCatalog
 from .serializers import MeasurementSerializer, VariableCatalogSerializer
-from .services import MeasurementService, PDFReportGenerator
+from .services import AQICalculatorService, MeasurementService, PDFReportGenerator
 
 
 class VariableCatalogViewSet(viewsets.ModelViewSet):
@@ -197,3 +197,65 @@ class AlertsReportView(APIView):
         filename = f"{today_str}_vrisa_{scope_str}_alerts_report.pdf"
 
         return FileResponse(buffer, as_attachment=True, filename=filename)
+
+
+class CurrentAQIView(APIView):
+    """
+    Vista para obtener el Índice de Calidad del Aire (AQI) en tiempo real.
+    Endpoint: GET /api/measurements/aqi/current/?station_id=1
+    Calcula el AQI actual basado en las mediciones más recientes de contaminantes:
+    - PM2.5, PM10, O3, CO, NO2, SO2
+    Responde con:
+    - Valor de AQI
+    - Categoría (Good, Moderate, Unhealthy, etc.)
+    - Contaminante dominante (el que determinó el AQI)
+    - Sub-índices de cada contaminante
+    """
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        station_id = request.query_params.get('station_id')
+
+        if not station_id:
+            return Response(
+                {"error": "Se requiere el parámetro 'station_id'"},
+                status=status.HTTP_400_BAD_REQUEST
+            )
+
+        # Validar que la estación existe
+        station = get_object_or_404(MonitoringStation, pk=station_id)
+
+        try:
+            # Calcular AQI usando el servicio
+            aqi_data = AQICalculatorService.calculate_aqi_for_station(
+                station_id=int(station_id)
+            )
+
+            # Enriquecer respuesta con información de la estación
+            response_data = {
+                'station_id': station.station_id,
+                'station_name': station.station_name,
+                'aqi': aqi_data['aqi'],
+                'category': aqi_data['category'],
+                'category_description': aqi_data['category_description'],
+                'color': aqi_data['color'],
+                'dominant_pollutant': aqi_data['dominant_pollutant'],
+                'timestamp': aqi_data['timestamp'],
+                'sub_indices': aqi_data['sub_indices']
+            }
+
+            return Response(response_data, status=status.HTTP_200_OK)
+
+        except ValueError as e:
+            return Response(
+                {
+                    "error": "No hay datos suficientes para calcular AQI",
+                    "detail": str(e)
+                },
+                status=status.HTTP_404_NOT_FOUND
+            )
+        except Exception as e:
+            return Response(
+                {"error": "Error al calcular AQI", "detail": str(e)},
+                status=status.HTTP_500_INTERNAL_SERVER_ERROR
+            )

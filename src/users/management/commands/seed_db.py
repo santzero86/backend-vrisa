@@ -159,10 +159,11 @@ class Command(BaseCommand):
             {'code': "O3",    'name': "Ozono Troposférico",       'unit': "µg/m³", 'min': 0, 'max': 300},
             {'code': "TEMP",  'name': "Temperatura",              'unit': "°C",    'min': -10,'max': 50},
             {'code': "HUM",   'name': "Humedad Relativa",         'unit': "%",     'min': 0,  'max': 100},
+            {'code': "AQI",   'name': "Índice de Calidad del Aire", 'unit': "AQI",  'min': 0,  'max': 500}
         ]
         for var in vars_data:
             VariableCatalog.objects.get_or_create(code=var['code'], defaults={
-                'name': var['name'], 'unit': var['unit'], 
+                'name': var['name'], 'unit': var['unit'],
                 'min_expected_value': var['min'], 'max_expected_value': var['max']
             })
 
