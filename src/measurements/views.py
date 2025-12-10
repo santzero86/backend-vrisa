@@ -215,45 +215,27 @@ class CurrentAQIView(APIView):
 
     def get(self, request):
         station_id = request.query_params.get('station_id')
-
-        if not station_id:
-            return Response(
-                {"error": "Se requiere el parámetro 'station_id'"},
-                status=status.HTTP_400_BAD_REQUEST
-            )
-
-        # Validar que la estación existe
-        station = get_object_or_404(MonitoringStation, pk=station_id)
+        
+        station_name = "Cali (Todas las estaciones)"
+        
+        # Validación: Si viene ID, verificamos que la estación exista
+        if station_id:
+            station = get_object_or_404(MonitoringStation, pk=station_id)
+            station_name = station.station_name
 
         try:
-            # Calcular AQI usando el servicio
-            aqi_data = AQICalculatorService.calculate_aqi_for_station(
-                station_id=int(station_id)
-            )
+            s_id = int(station_id) if station_id else None
+            
+            aqi_data = AQICalculatorService.calculate_aqi_for_station(station_id=s_id)
 
-            # Enriquecer respuesta con información de la estación
-            response_data = {
-                'station_id': station.station_id,
-                'station_name': station.station_name,
-                'aqi': aqi_data['aqi'],
-                'category': aqi_data['category'],
-                'category_description': aqi_data['category_description'],
-                'color': aqi_data['color'],
-                'dominant_pollutant': aqi_data['dominant_pollutant'],
-                'timestamp': aqi_data['timestamp'],
-                'sub_indices': aqi_data['sub_indices']
-            }
+            aqi_data['station_name'] = station_name
+            
+            # Si se consultó una estación específica, agregamos su ID
+            if s_id:
+                aqi_data['station_id'] = s_id
 
-            return Response(response_data, status=status.HTTP_200_OK)
+            return Response(aqi_data, status=status.HTTP_200_OK)
 
-        except ValueError as e:
-            return Response(
-                {
-                    "error": "No hay datos suficientes para calcular AQI",
-                    "detail": str(e)
-                },
-                status=status.HTTP_404_NOT_FOUND
-            )
         except Exception as e:
             return Response(
                 {"error": "Error al calcular AQI", "detail": str(e)},

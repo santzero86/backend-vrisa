@@ -19,14 +19,26 @@ class StationViewSet(viewsets.ModelViewSet):
 
     def get_queryset(self):
         """
-        Opcional: Filtrar solo estaciones activas para usuarios normales,
-        o todas para administradores.
+        Lógica híbrida:
+        1. Si se pide ?status=ACTIVE -> Cualquier usuario puede verlas (Público/Dashboard).
+        2. Si no hay filtro -> Solo Admin o Manager ven sus estaciones (Gestión).
         """
+        user = self.request.user
         queryset = super().get_queryset()
-        status = self.request.query_params.get("status")
-        if status:
-            queryset = queryset.filter(operative_status=status)
-        return queryset
+        
+        # Obtener parámetro de filtro
+        status_param = self.request.query_params.get("status")
+
+        # Solicitud Pública para Dashboard (Solo Activas)
+        if status_param == 'ACTIVE':
+            return queryset.filter(operative_status='ACTIVE')
+
+        # Super administrador
+        if user.is_superuser:
+            return queryset
+        
+        # Filtrar por las que administra el usuario si no es superuser
+        return queryset.filter(manager_user=user)
     
     def create(self, request, *args, **kwargs):
         """

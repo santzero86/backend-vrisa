@@ -612,29 +612,16 @@ class AQICalculatorService:
         return AQI_CATEGORIES[(301, 500)]
 
     @staticmethod
-    def calculate_aqi_for_station(station_id: int, timestamp=None) -> dict:
+    def calculate_aqi_for_station(station_id: int = None, timestamp=None) -> dict:
         """
-        Calcula el AQI actual para una estación específica.
-        Obtiene las últimas mediciones disponibles de cada contaminante,
-        calcula los sub-índices y retorna el máximo (peor valor) como AQI final.
-        Args:
-            station_id: ID de la estación de monitoreo
-            timestamp: Momento específico para calcular (default: ahora)
-        Returns:
-            dict: {
-                'aqi': float,
-                'category': str,
-                'dominant_pollutant': str,
-                'timestamp': datetime,
-                'sub_indices': dict
-            }
-        Raises:
-            ValueError: Si no hay datos suficientes para calcular AQI
+        Calcula el AQI actual.
+        - Si se provee station_id: Calcula el AQI específico para esa estación.
+        - Si station_id es None: Calcula el AQI promedio de la ciudad (basado en todos los sensores activos).
         """
         if timestamp is None:
             timestamp = timezone.now()
 
-        # Ventana de tiempo: últimas 24 horas
+        # Ventana de tiempo: últimas 24 horas para tener datos representativos
         time_window_start = timestamp - timedelta(hours=24)
 
         sub_indices = {}
@@ -645,41 +632,51 @@ class AQICalculatorService:
                 # Obtener la variable del catálogo
                 variable = VariableCatalog.objects.get(code=pollutant_code)
 
-                # Obtener mediciones recientes para esta variable en la estación
-                measurements = Measurement.objects.filter(
-                    sensor__station_id=station_id,
-                    variable=variable,
-                    measure_date__gte=time_window_start,
-                    measure_date__lte=timestamp,
-                ).order_by("-measure_date")
+                # Construcción dinámica del QuerySet
+                filters = {
+                    'variable': variable,
+                    'measure_date__gte': time_window_start,
+                    'measure_date__lte': timestamp,
+                    'sensor__status': Sensor.Status.ACTIVE # IMPORTANTE: Solo datos confiables
+                }
+
+                # Si pidieron una estación específica, filtramos por ella.
+                # Si es None, el filtro no se aplica y trae datos de toda la red (Cali).
+                if station_id:
+                    filters['sensor__station_id'] = station_id
+
+                measurements = Measurement.objects.filter(**filters)
 
                 if measurements.exists():
-                    if pollutant_code in ["PM2.5", "PM10"]:
-                        avg_concentration = measurements.aggregate(Avg("value"))[
-                            "value__avg"
-                        ]
-                    else:
-                        avg_concentration = measurements.first().value
+                    # Calculamos el promedio de concentración.
+                    # Al ser un AQI "Live" o consolidado, el promedio es la medida estadística 
+                    # más segura para representar el estado actual de una zona o estación.
+                    avg_concentration = measurements.aggregate(Avg("value"))["value__avg"]
 
-                    # Calcular sub-índice
-                    sub_index = AQICalculatorService.calculate_sub_index(
-                        pollutant_code, avg_concentration
-                    )
-                    sub_indices[pollutant_code] = sub_index
+                    if avg_concentration is not None:
+                        # Calcular sub-índice usando la fórmula EPA
+                        sub_index = AQICalculatorService.calculate_sub_index(
+                            pollutant_code, avg_concentration
+                        )
+                        sub_indices[pollutant_code] = sub_index
 
             except VariableCatalog.DoesNotExist:
                 continue
 
+        # Si después de revisar todos los contaminantes no hay datos:
         if not sub_indices:
+            scope_msg = f"la estación {station_id}" if station_id else "la red de monitoreo"
+            # Podemos lanzar error o devolver un objeto vacío. 
+            # Lanzar error permite al frontend mostrar "Sin datos" o un estado de carga.
             raise ValueError(
-                f"No hay datos suficientes para calcular AQI en la estación {station_id}"
+                f"No hay datos suficientes recientes (últimas 24h) para calcular AQI en {scope_msg}"
             )
 
-        # El AQI final es el MÁXIMO de todos los sub-índices (el peor)
+        # El AQI final es el MÁXIMO de todos los sub-índices (el contaminante crítico)
         aqi_value = max(sub_indices.values())
         dominant_pollutant = max(sub_indices, key=sub_indices.get)
 
-        # Obtener categoría
+        # Obtener información de la categoría (Color, Nivel, Descripción)
         category_info = AQICalculatorService.get_aqi_category(aqi_value)
 
         return {
@@ -690,8 +687,10 @@ class AQICalculatorService:
             "dominant_pollutant": dominant_pollutant,
             "timestamp": timestamp,
             "sub_indices": sub_indices,
+            # Retornamos el ID para referencia, o None si fue global
+            "station_id": station_id 
         }
-
+    
     @staticmethod
     def calculate_aqi_historical(
         station_id: int, start_date, end_date, interval_hours=1
