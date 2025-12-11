@@ -54,7 +54,7 @@ Motor de procesamiento de datos en tiempo real.
 ### 2. Clonamos el repositorio:
 
 ```
-git clone <url_del_repositorio>
+git clone https://github.com/santzero86/backend-vrisa.git
 ```
 ---
 ### 2. Levantar el Proyecto
