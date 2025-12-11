@@ -75,7 +75,7 @@ docker compose up -d
 
 La aplicación estará disponible en: http://localhost:8088/
 
-![alt text](resources_readme\image.png)
+![alt text](./resources_readme/image.png)
 
 ---
 
