@@ -1,30 +1,42 @@
 # Backend VriSA - Sistema de Monitoreo Ambiental
+![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)
+![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)
+![Django](https://img.shields.io/badge/Django-5.2-092E20?style=flat-square&logo=django&logoColor=white)
+![PostGIS](https://img.shields.io/badge/PostGIS-Enabled-336791?style=flat-square&logo=postgresql&logoColor=white)
+![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
 
 Backend robusto desarrollado en **Django (GeoDjango)** para la gestión, recolección y análisis de datos de calidad del aire. Este sistema implementa el estándar **US EPA** para el cálculo del Índice de Calidad del Aire (AQI) y gestiona una red de estaciones de monitoreo IoT.
+---
 
 ## Características y Módulos del Sistema
 
+
 El proyecto está estructurado en módulos (Apps) desacoplados para garantizar escalabilidad y mantenimiento:
+---
 
 ### 1. Gestión de Usuarios (`src.users`)
 Sistema avanzado de autenticación y autorización mediante **JWT (JSON Web Tokens)**.
 - **Roles y Permisos:** Soporte para múltiples roles (Super Admin, Representante Institucional, Admin de Estación, Investigador, Ciudadano).
 - **Validación:** Flujos de aprobación para roles sensibles y registro de investigadores.
+---
 
 ### 2. Instituciones Ambientales (`src.institutions`)
 Gestión de entidades propietarias de las estaciones (ej. DAGMA, CVC).
 - **Personalización:** Manejo de identidad visual (Logos y colores corporativos).
 - **Jerarquía:** Vinculación de usuarios y estaciones a instituciones específicas.
+---
 
 ### 3. Estaciones de Monitoreo (`src.stations`)
 Núcleo geoespacial del proyecto utilizando **PostGIS**.
 - **Geolocalización:** Ubicación precisa (Latitud/Longitud) y consultas espaciales (búsqueda por radio).
 - **Seguridad IoT:** Generación automática de tokens de autenticación para el hardware.
+---
 
 ### 4. Sensores y Mantenimiento (`src.sensors`)
 Inventario de hardware instalado.
 - **Ciclo de Vida:** Control de estados (Activo, Inactivo, Mantenimiento).
 - **Bitácora:** Registro de mantenimientos, calibraciones y certificados.
+---
 
 ### 5. Mediciones y Reportes (`src.measurements`)
 Motor de procesamiento de datos en tiempo real.
