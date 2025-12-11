@@ -8,6 +8,7 @@ from rest_framework import permissions, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
 from rest_framework.views import APIView
+from src.sensors.models import Sensor
 from src.stations.models import MonitoringStation
 from .models import Measurement, VariableCatalog
 from .serializers import MeasurementSerializer, VariableCatalogSerializer
@@ -171,7 +172,10 @@ class TrendsReportView(APIView):
 
         # Validación: Solo las fechas son estrictamente obligatorias ahora
         if not start_date or not end_date:
-            return Response({"error": "Faltan parámetros de fecha (start_date, end_date)"}, status=400)
+            return Response(
+                {"error": "Faltan parámetros de fecha (start_date, end_date)"},
+                status=400,
+            )
 
         # Lógica para determinar si es una estación específica o todas
         station = None
@@ -180,14 +184,16 @@ class TrendsReportView(APIView):
 
         buffer = io.BytesIO()
         report = PDFReportGenerator(buffer)
-        
+
         # Pasamos 'station' (que puede ser None) y el 'variable_code'
         report.generate_trends_report(station, start_date, end_date, variable_code)
 
         buffer.seek(0)
 
         # Nombre del archivo dinámico
-        scope_name = station.station_name.replace(" ", "_") if station else "consolidado_cali"
+        scope_name = (
+            station.station_name.replace(" ", "_") if station else "consolidado_cali"
+        )
         filename = f"{start_date}_to_{end_date}-{scope_name}-vrisa-trends.pdf"
 
         return FileResponse(buffer, as_attachment=True, filename=filename)
@@ -274,3 +280,57 @@ class CurrentAQIView(APIView):
                 {"error": "Error al calcular AQI", "detail": str(e)},
                 status=status.HTTP_500_INTERNAL_SERVER_ERROR,
             )
+
+
+class LatestMeasurementsView(APIView):
+    """
+    Endpoint: /api/measurements/latest/
+    Obtiene la última medición registrada para cada variable del catálogo.
+
+    Query Params:
+        station_id (opcional): ID de la estación para filtrar.
+
+    Response:
+        {
+            "PM2.5": { "value": 12.5, "unit": "µg/m³", "date": "2023-..." },
+            "TEMP": { "value": 24.0, "unit": "°C", "date": "2023-..." },
+            ...
+        }
+    """
+
+    permission_classes = [permissions.IsAuthenticated]
+
+    def get(self, request):
+        station_id = request.query_params.get("station_id")
+
+        response_data = {}
+        variables = VariableCatalog.objects.all()
+
+        for var in variables:
+            try:
+                filters = {"variable": var, "sensor__status": Sensor.Status.ACTIVE}
+
+                if station_id:
+                    filters["sensor__station_id"] = station_id
+
+                latest_measurement = (
+                    Measurement.objects.filter(**filters)
+                    .select_related("variable")
+                    .order_by("-measure_date")
+                    .first()
+                )
+
+                if latest_measurement:
+                    response_data[var.code] = {
+                        "value": latest_measurement.value,
+                        "unit": var.unit,
+                        "last_updated": latest_measurement.measure_date,
+                    }
+                else:
+                    response_data[var.code] = None
+
+            except Exception as e:
+                print(f"Error procesando variable {var.code}: {e}")
+                continue
+
+        return Response(response_data, status=status.HTTP_200_OK)
