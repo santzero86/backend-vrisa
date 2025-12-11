@@ -14,7 +14,7 @@ Backend robusto desarrollado en **Django (GeoDjango)** para la gestión, recolec
 
 
 El proyecto está estructurado en módulos (Apps) desacoplados para garantizar escalabilidad y mantenimiento:
----
+
 
 ### 1. Gestión de Usuarios (`src.users`)
 Sistema avanzado de autenticación y autorización mediante **JWT (JSON Web Tokens)**.
