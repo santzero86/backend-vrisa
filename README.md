@@ -1,12 +1,14 @@
 # Backend VriSA - Sistema de Monitoreo Ambiental
+
 ![Status](https://img.shields.io/badge/Status-Active-brightgreen?style=flat-square)
 ![Python](https://img.shields.io/badge/Python-3.11-3776AB?style=flat-square&logo=python&logoColor=white)
 ![Django](https://img.shields.io/badge/Django-5.2-092E20?style=flat-square&logo=django&logoColor=white)
 ![PostGIS](https://img.shields.io/badge/PostGIS-Enabled-336791?style=flat-square&logo=postgresql&logoColor=white)
 ![Docker](https://img.shields.io/badge/Docker-Compose-2496ED?style=flat-square&logo=docker&logoColor=white)
 
+
 Backend robusto desarrollado en **Django (GeoDjango)** para la gestión, recolección y análisis de datos de calidad del aire. Este sistema implementa el estándar **US EPA** para el cálculo del Índice de Calidad del Aire (AQI) y gestiona una red de estaciones de monitoreo IoT.
----
+
 
 ## Características y Módulos del Sistema
 
