@@ -30,6 +30,10 @@ class Command(BaseCommand):
                 pepito = self.create_user(dagma)
                 station = self.create_station(dagma, pepito)
                 self.create_institution_head(dagma)
+                
+                # Usuarios con roles citizen y researcher
+                self.create_citizen_user()
+                self.create_researcher_user()
 
                 # Crear Sensor asociado a la estación
                 self.create_sensors(station)
@@ -171,6 +175,77 @@ class Command(BaseCommand):
             )
         else:
             self.stdout.write(f"- Usuario Representante ya existía: {email}")
+
+    def create_citizen_user(self):
+        """
+        Crea un usuario con rol citizen (ciudadano).
+        No requiere institución.
+        """
+        email = "ciudadano@vrisa.com"
+        password = "ciudadano1234"
+
+        if not User.objects.filter(email=email).exists():
+            user = User.objects.create_user(
+                email=email,
+                password=password,
+                phone="3001112233",
+                first_name="María",
+                last_name="González",
+                is_active=True,
+            )  # type: ignore
+
+            # Asignar rol de Ciudadano
+            role_citizen = Role.objects.get(role_name="citizen")
+            UserRole.objects.create(
+                user=user,
+                role=role_citizen,
+                approved_status=ValidationStatus.ACCEPTED,
+                assigned_by=user,
+            )
+
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"- Usuario Ciudadano creado: {user.email} (Rol: citizen)"
+                )
+            )
+        else:
+            self.stdout.write(f"- Usuario Ciudadano ya existía: {email}")
+
+    def create_researcher_user(self):
+        """
+        Crea un usuario con rol researcher (investigador).
+        No requiere institución obligatoriamente.
+        """
+        email = "investigador@vrisa.com"
+        password = "investigador1234"
+
+        if not User.objects.filter(email=email).exists():
+            user = User.objects.create_user(
+                email=email,
+                password=password,
+                phone="3002223344",
+                first_name="Carlos",
+                last_name="Rodríguez",
+                job_title="Investigador Ambiental",
+                is_active=True,
+            )  # type: ignore
+
+            # Asignar rol de Investigador
+            role_researcher = Role.objects.get(role_name="researcher")
+            UserRole.objects.create(
+                user=user,
+                role=role_researcher,
+                approved_status=ValidationStatus.ACCEPTED,
+                assigned_by=user,
+            )
+
+            self.stdout.write(
+                self.style.SUCCESS(
+                    f"- Usuario Investigador creado: {user.email} (Rol: researcher)"
+                )
+            )
+        else:
+            self.stdout.write(f"- Usuario Investigador ya existía: {email}")
 
     def create_station(self, institution: EnvironmentalInstitution, manager: User):
         station_name = "La Flora"
