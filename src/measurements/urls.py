@@ -4,6 +4,7 @@ from .views import (
     AirQualityReportView,
     AlertsReportView,
     CurrentAQIView,
+    LatestMeasurementsView,
     MeasurementViewSet,
     TrendsReportView,
     VariableCatalogViewSet,
@@ -18,5 +19,6 @@ urlpatterns = [
     path("reports/air-quality/", AirQualityReportView.as_view(), name="report-air-quality"),
     path("reports/trends/", TrendsReportView.as_view(), name="report-trends"),
     path("reports/alerts/", AlertsReportView.as_view(), name="report-alerts"),
+    path("latest/", LatestMeasurementsView.as_view(), name="measurements-latest"),
     path("aqi/current/", CurrentAQIView.as_view(), name="aqi-current"),
 ]
