@@ -82,7 +82,6 @@ class PDFReportGenerator:
             buffer (io.BytesIO): Buffer de memoria donde se escribirá el archivo PDF binario.
         """
         self.buffer = buffer
-        # Cambiamos a horizontal (landscape) para que quepan todas las columnas estadísticas
         self.doc = SimpleDocTemplate(self.buffer, pagesize=landscape(letter))
         self.elements = []
         self.styles = getSampleStyleSheet()

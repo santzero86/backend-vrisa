@@ -37,12 +37,11 @@ class InstitutionViewSet(viewsets.ModelViewSet):
         colors_data = validated_data.pop("colors_input", [])
 
         try:
-            # LLAMADA AL SERVICIO
             institution = InstitutionService.create_institution(
                 data=validated_data, colors_list=colors_data
             )
 
-            # Serializamos el resultado final (que ahora incluye los colores creados)
+            # Serializar el resultado final
             output_serializer = self.get_serializer(institution)
             return Response(output_serializer.data, status=status.HTTP_201_CREATED)
 
