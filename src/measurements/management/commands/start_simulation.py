@@ -29,7 +29,7 @@ class Command(BaseCommand):
     }
 
     def handle(self, *args, **kwargs):
-        self.stdout.write(self.style.WARNING('--- Simulador VriSA (Con Alertas) Iniciado ---'))
+        self.stdout.write(self.style.WARNING('--- Simulador VriSA (ajustado a la norma US EPA) Iniciado ---'))
         
         # Esperar DB
         while True:
@@ -40,8 +40,8 @@ class Command(BaseCommand):
         
         variables_cache = {v.code: v for v in VariableCatalog.objects.all()}
 
-        # Probabilidad de alerta en cada ciclo de envío (10%)
-        ALERT_CHANCE = 0.1
+        # Probabilidad de alerta en cada ciclo de envío (5%)
+        ALERT_CHANCE = 0.05
 
         while True:
             try:
@@ -61,24 +61,27 @@ class Command(BaseCommand):
                     for code in capabilities:
                         if code not in variables_cache: continue
                         var_obj = variables_cache[code]
-                        base_val = base_data.get(code, 0)
+                                                
+                        # Normalización de base CO
+                        raw_base = base_data.get(code, 0)
+                        if code == 'CO' and raw_base > 50: raw_base = raw_base / 100
                         
+                        base_val = raw_base
                         # Variación normal
                         variation = base_val * random.uniform(0.05, 0.15)
                         sim_val = max(0, base_val + random.choice([variation, -variation]))
 
-                        # --- INYECCIÓN DE ALERTA ---
-                        # Si estamos en momento crítico, y NO es temperatura/humedad (para dramatismo en contaminantes)
+                        # --- inyección de alerta controlada ---
                         if is_critical_moment and code not in ['TEMP', 'HUM']:
-                            # Generar valor de alerta
-                            spike = random.uniform(1.2, 3.0) # Hasta 3 veces lo normal
-                            sim_val = sim_val * spike
+                            limit = var_obj.max_expected_value
+                            if limit <= 0: limit = 50 # Fallback
                             
-                            # Asegurar que cruce el umbral para que se note en el frontend
-                            if sim_val < var_obj.max_expected_value:
-                                sim_val = var_obj.max_expected_value + 5.0
+                            # Superar el límite por un margen pequeño (10-30%)
+                            excess = limit * random.uniform(0.1, 0.3)
+                            sim_val = limit + excess
                         
                         if code == 'HUM': sim_val = min(100, sim_val)
+                        if code == 'CO' and sim_val > 60: sim_val = 55
 
                         # Guardar usando el servicio (que ya modificamos en el Paso 1 para aceptar esto)
                         self.save_measurement(sensor, var_obj, sim_val, now)
