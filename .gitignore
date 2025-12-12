@@ -8,3 +8,4 @@ db.sqlite3
 media
 /static
 /venv
+data
