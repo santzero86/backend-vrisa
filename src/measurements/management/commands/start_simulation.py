@@ -83,10 +83,7 @@ class Command(BaseCommand):
                         if code == 'HUM': sim_val = min(100, sim_val)
                         if code == 'CO' and sim_val > 60: sim_val = 55
 
-                        # Guardar usando el servicio (que ya modificamos en el Paso 1 para aceptar esto)
                         self.save_measurement(sensor, var_obj, sim_val, now)
-                        
-                        # Visualización en consola
                         val_str = f"{sim_val:.2f}"
                         if is_critical_moment and code not in ['TEMP', 'HUM']:
                             val_str += " [ALERTA!]" # Marca visual en el log del contenedor
