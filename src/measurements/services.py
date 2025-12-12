@@ -212,7 +212,7 @@ class PDFReportGenerator:
         alerts_detected = []
 
         for code, group in grouped:
-            # Cálculos estadísticos
+            # Cálculos estadísticos básicos
             count = group["value"].count()
             mean = group["value"].mean()
             min_val = group["value"].min()
@@ -220,38 +220,53 @@ class PDFReportGenerator:
             median = group["value"].median()
             std_dev = group["value"].std()
 
-            # CV = (Desviación Estándar / Media) * 100
-            # Evitamos división por cero
+            # Cálculo del Coeficiente de Variación (CV)
             if mean != 0 and not pd.isna(std_dev):
                 cv = (std_dev / abs(mean)) * 100
             else:
                 cv = 0.0
 
-            # Metadatos de la variable (tomamos el primero del grupo)
+            # Obtener metadatos de la variable
             unit = group["variable__unit"].iloc[0]
-            limit_max = group["variable__max_expected_value"].iloc[0]
+            limit_max_db = group["variable__max_expected_value"].iloc[0]
             limit_min = group["variable__min_expected_value"].iloc[0]
 
-            # Evaluar Estado
+            # Lógica de "Límite Efectivo" para Alertas
+            # Por defecto usamos el límite configurado en la base de datos
+            effective_limit_max = limit_max_db
+
+            # Si la variable es AQI, ignoramos el 500 de la DB y usamos 100 como umbral de alerta
+            # (100 es el límite de "Moderado" a "Dañino para grupos sensibles" según EPA)
+            if code == "AQI":
+                effective_limit_max = 100.0
+
+            # Evaluar Estado (OK vs ALERTA)
             status = "OK"
-            if max_val > limit_max or min_val < limit_min:
+
+            # Usamos effective_limit_max para la comparación lógica
+            if max_val > effective_limit_max or min_val < limit_min:
                 status = "ALERTA"
+
+                # Identificamos las filas específicas que causaron la alerta
                 outliers = group[
-                    (group["value"] > limit_max) | (group["value"] < limit_min)
+                    (group["value"] > effective_limit_max)
+                    | (group["value"] < limit_min)
                 ]
-                for _, row in outliers.iterrows():
-                    # Aquí usamos el nombre de la estación que viene en el queryset
-                    st_name = row.get("sensor__station__station_name", "N/A")
+
+                # Agregamos al detalle de alertas (tabla inferior del PDF)
+                for _, row_data in outliers.iterrows():
+                    st_name = row_data.get("sensor__station__station_name", "N/A")
                     alerts_detected.append(
                         [
-                            row["measure_date"].strftime("%Y-%m-%d %H:%M"),
-                            st_name,  # Columna extra para saber de qué estación es la alerta
+                            row_data["measure_date"].strftime("%Y-%m-%d %H:%M"),
+                            st_name,
                             code,
-                            f"{row['value']:.2f}",
-                            f"{limit_max:.2f}",
+                            f"{row_data['value']:.2f}",
+                            f"{effective_limit_max:.2f}",  # Mostramos el límite real usado (100 para AQI)
                         ]
                     )
 
+            # Construir la fila de la tabla resumen
             row = [
                 code,
                 unit,
@@ -262,7 +277,7 @@ class PDFReportGenerator:
                 f"{median:.2f}",
                 f"{std_dev:.2f}" if not pd.isna(std_dev) else "0.00",
                 f"{cv:.1f}%",
-                f"{limit_max:.0f}",
+                f"{effective_limit_max:.0f}",  # Visualmente mostramos el límite efectivo
                 status,
             ]
             summary_data.append(row)
@@ -371,7 +386,11 @@ class PDFReportGenerator:
             end_date (str/date): Fecha de fin.
             variable_code (str, optional): Si se especifica, solo grafica esa variable.
         """
-        scope_name = station.station_name if station else "Promedio de Ciudad (Todas las estaciones)"
+        scope_name = (
+            station.station_name
+            if station
+            else "Promedio de Ciudad (Todas las estaciones)"
+        )
         subtitle = f"Desde: {start_date} Hasta: {end_date}"
         if variable_code:
             subtitle += f" | Variable: {variable_code}"
@@ -385,18 +404,15 @@ class PDFReportGenerator:
 
         for var in variables:
             plt.figure(figsize=(10, 4))
-            
+
             # Filtros base
-            filters = {
-                "variable": var,
-                "measure_date__range": [start_date, end_date]
-            }
+            filters = {"variable": var, "measure_date__range": [start_date, end_date]}
 
             if station:
                 # Estación Específica -> Datos crudos
                 filters["sensor__station"] = station
                 data = Measurement.objects.filter(**filters).order_by("measure_date")
-                
+
                 if not data.exists():
                     plt.close()
                     continue
@@ -404,33 +420,36 @@ class PDFReportGenerator:
                 dates = [m.measure_date for m in data]
                 values = [m.value for m in data]
                 label_legend = f"{var.name} ({station.station_name})"
-                
+
             else:
                 # Todas las estaciones -> Agregar por promedio
                 # Es necesario agrupar por fecha para que la gráfica tenga sentido
                 data = (
                     Measurement.objects.filter(**filters)
-                    .values('measure_date')
-                    .annotate(avg_value=Avg('value'))
-                    .order_by('measure_date')
+                    .values("measure_date")
+                    .annotate(avg_value=Avg("value"))
+                    .order_by("measure_date")
                 )
 
                 if not data.exists():
                     plt.close()
                     continue
 
-                dates = [x['measure_date'] for x in data]
-                values = [x['avg_value'] for x in data]
+                dates = [x["measure_date"] for x in data]
+                values = [x["avg_value"] for x in data]
                 label_legend = f"{var.name} (Promedio Global)"
 
             # Generación de la gráfica con Matplotlib
             plt.plot(dates, values, label=label_legend, color="#4339F2", linewidth=2)
-            
+
             # Línea de límite normativo
             plt.axhline(
-                y=var.max_expected_value, color="r", linestyle="--", label=f"Límite ({var.max_expected_value})"
+                y=var.max_expected_value,
+                color="r",
+                linestyle="--",
+                label=f"Límite ({var.max_expected_value})",
             )
-            
+
             plt.title(f"Comportamiento de {var.name}")
             plt.ylabel(f"{var.unit}")
             plt.legend()
@@ -452,7 +471,12 @@ class PDFReportGenerator:
             self.elements.append(Spacer(1, 15))
 
         if len(self.elements) <= 5:
-            self.elements.append(Paragraph("No se encontraron datos para el rango seleccionado.", self.styles["Normal"]))
+            self.elements.append(
+                Paragraph(
+                    "No se encontraron datos para el rango seleccionado.",
+                    self.styles["Normal"],
+                )
+            )
 
         self.doc.build(self.elements)
 
@@ -484,14 +508,20 @@ class PDFReportGenerator:
         alerts_detected = []
 
         # Procesar para encontrar valores fuera de rango ( > max o < min )
+        # Procesar para encontrar valores fuera de rango
         for m in queryset:
             is_critical = False
             limit_ref = 0
 
+            # Definir el límite superior dinámicamente
+            upper_limit = m.variable.max_expected_value
+            if m.variable.code == "AQI":
+                upper_limit = 100.0
+
             # Verificación Límite Superior
-            if m.value > m.variable.max_expected_value:
+            if m.value > upper_limit:
                 is_critical = True
-                limit_ref = m.variable.max_expected_value
+                limit_ref = upper_limit
             # Verificación Límite Inferior
             elif m.value < m.variable.min_expected_value:
                 is_critical = True
@@ -507,7 +537,6 @@ class PDFReportGenerator:
                         f"{limit_ref:.2f}",
                     ]
                 )
-
         # Renderizar Tabla
         if not alerts_detected:
             self.elements.append(
@@ -670,24 +699,26 @@ class AQICalculatorService:
 
                 # Construcción dinámica del QuerySet
                 filters = {
-                    'variable': variable,
-                    'measure_date__gte': time_window_start,
-                    'measure_date__lte': timestamp,
-                    'sensor__status': Sensor.Status.ACTIVE # IMPORTANTE: Solo datos confiables
+                    "variable": variable,
+                    "measure_date__gte": time_window_start,
+                    "measure_date__lte": timestamp,
+                    "sensor__status": Sensor.Status.ACTIVE,  # IMPORTANTE: Solo datos confiables
                 }
 
                 # Si pidieron una estación específica, filtramos por ella.
                 # Si es None, el filtro no se aplica y trae datos de toda la red (Cali).
                 if station_id:
-                    filters['sensor__station_id'] = station_id
+                    filters["sensor__station_id"] = station_id
 
                 measurements = Measurement.objects.filter(**filters)
 
                 if measurements.exists():
                     # Calculamos el promedio de concentración.
-                    # Al ser un AQI "Live" o consolidado, el promedio es la medida estadística 
+                    # Al ser un AQI "Live" o consolidado, el promedio es la medida estadística
                     # más segura para representar el estado actual de una zona o estación.
-                    avg_concentration = measurements.aggregate(Avg("value"))["value__avg"]
+                    avg_concentration = measurements.aggregate(Avg("value"))[
+                        "value__avg"
+                    ]
 
                     if avg_concentration is not None:
                         # Calcular sub-índice usando la fórmula EPA
@@ -701,8 +732,10 @@ class AQICalculatorService:
 
         # Si después de revisar todos los contaminantes no hay datos:
         if not sub_indices:
-            scope_msg = f"la estación {station_id}" if station_id else "la red de monitoreo"
-            # Podemos lanzar error o devolver un objeto vacío. 
+            scope_msg = (
+                f"la estación {station_id}" if station_id else "la red de monitoreo"
+            )
+            # Podemos lanzar error o devolver un objeto vacío.
             # Lanzar error permite al frontend mostrar "Sin datos" o un estado de carga.
             raise ValueError(
                 f"No hay datos suficientes recientes (últimas 24h) para calcular AQI en {scope_msg}"
@@ -724,9 +757,9 @@ class AQICalculatorService:
             "timestamp": timestamp,
             "sub_indices": sub_indices,
             # Retornamos el ID para referencia, o None si fue global
-            "station_id": station_id 
+            "station_id": station_id,
         }
-    
+
     @staticmethod
     def calculate_aqi_historical(
         station_id: int, start_date, end_date, interval_hours=1

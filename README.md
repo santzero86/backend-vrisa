@@ -46,6 +46,19 @@ Motor de procesamiento de datos en tiempo real.
 - **Reportes PDF:** Generación automática de informes con estadísticas y gráficas (Pandas/Matplotlib).
 - **Simulador:** Generación de datos sintéticos realistas.
 
+#### 🌍 Datos de Simulación (Opcional)
+
+Para que el simulador genere datos históricos con patrones realistas (basados en un dataset horario real), el sistema busca un archivo CSV en la ruta:  
+`backend/data/AQI_Bangladesh.csv`
+
+Si este archivo no existe, el sistema utilizará un perfil matemático por defecto.
+
+**Para una experiencia completa:**
+1. Descarga el dataset desde Kaggle: [Enlace al Dataset de Kaggle](https://www.kaggle.com/datasets/shakilofficial0/hourly-air-quality-index-aqi-of-bangladesh)
+2. Crea una carpeta llamada `data` dentro de `backend/`.
+3. Pega el archivo descargado allí y renómbralo a `AQI_Bangladesh.csv`.
+4. Reinicia el contenedor del backend para regenerar la semilla.
+
 ---
 
 ## Stack Tecnológico
